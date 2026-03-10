@@ -1,0 +1,3243 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Side-Step Training Queue Manager - Complete Edition</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-family: monospace;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section h2::before {
+            content: "▶";
+            font-size: 0.8em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group .help-text {
+            display: block;
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        .help-icon {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            cursor: help;
+            margin-left: 8px;
+            user-select: none;
+            transition: all 0.3s;
+        }
+
+        .help-icon:hover {
+            background: #764ba2;
+            transform: scale(1.1);
+        }
+
+        .detailed-help {
+            display: none;
+            margin-top: 10px;
+            padding: 15px;
+            background: #e8eaf6;
+            border-left: 4px solid #667eea;
+            border-radius: 6px;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .detailed-help.active {
+            display: block;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+
+            to {
+                opacity: 1;
+                max-height: 500px;
+            }
+        }
+
+        .detailed-help h4 {
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+
+        .detailed-help p {
+            margin-bottom: 8px;
+        }
+
+        .detailed-help code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', monospace;
+            color: #e91e63;
+        }
+
+        .detailed-help ul {
+            margin-left: 20px;
+            margin-bottom: 8px;
+        }
+
+        .detailed-help .impact-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-right: 5px;
+            margin-top: 5px;
+        }
+
+        .impact-vram {
+            background: #f44336;
+            color: white;
+        }
+
+        .impact-speed {
+            background: #ff9800;
+            color: white;
+        }
+
+        .impact-quality {
+            background: #4caf50;
+            color: white;
+        }
+
+        .impact-neutral {
+            background: #9e9e9e;
+            color: white;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: normal;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            flex: 1;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+
+        .output-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #1e1e1e;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .output-section.active {
+            display: block;
+        }
+
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .output-header h3 {
+            color: #4ec9b0;
+            font-family: monospace;
+        }
+
+        .copy-btn {
+            padding: 8px 16px;
+            font-size: 0.9em;
+            background: #4ec9b0;
+            color: #1e1e1e;
+        }
+
+        .copy-btn:hover {
+            background: #6fddca;
+        }
+
+        .command-output {
+            background: #2d2d2d;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 6px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.95em;
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .mode-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .mode-option {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .mode-option:hover {
+            border-color: #667eea;
+            background: #f0f0ff;
+        }
+
+        .mode-option.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .mode-option input[type="radio"] {
+            display: none;
+        }
+
+        .mode-option h3 {
+            margin-bottom: 5px;
+            font-size: 1.1em;
+        }
+
+        .mode-option p {
+            font-size: 0.85em;
+            opacity: 0.8;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .alert-info {
+            background: #cfe2ff;
+            border-left: 4px solid #0d6efd;
+            color: #084298;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            color: #664d03;
+        }
+
+        .alert-success {
+            background: #d1e7dd;
+            border-left: 4px solid #28a745;
+            color: #0f5132;
+        }
+
+        /* Job Queue Styles */
+        .job-list {
+            margin-top: 20px;
+        }
+
+        .job-item {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .job-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .job-item-title {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 1.1em;
+        }
+
+        .job-item-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .job-item-details {
+            font-size: 0.9em;
+            color: #666;
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .job-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+
+        .job-badge-train {
+            background: #667eea;
+            color: white;
+        }
+
+        .job-badge-preprocess {
+            background: #28a745;
+            color: white;
+        }
+
+        .empty-queue {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-style: italic;
+        }
+
+        .queue-options {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .queue-options h4 {
+            color: #664d03;
+            margin-bottom: 10px;
+        }
+
+        .tab-container {
+            margin-bottom: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .adapter-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .adapter-option {
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .adapter-option:hover {
+            border-color: #667eea;
+            background: #f0f0ff;
+        }
+
+        .adapter-option.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .adapter-option input[type="radio"] {
+            display: none;
+        }
+
+        .adapter-option h3 {
+            margin-bottom: 8px;
+        }
+
+        .adapter-option .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .badge-recommended {
+            background: #28a745;
+            color: white;
+        }
+
+        .badge-experimental {
+            background: #ffc107;
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Side-Step Queue Manager</h1>
+            <p>Complete training configuration with LoRA/LoKR, Preprocessing++, and job queuing</p>
+        </div>
+
+        <div class="content">
+            <div class="alert alert-success">
+                <strong>✨ Side-Step Training Form</strong> Configure training jobs with all adapter types (LoRA, DoRA, LoKR, LoHA, OFT), preprocessing tasks, and comprehensive parameter control. Queue multiple jobs and run them overnight!
+            </div>
+
+            <!-- Tabs -->
+            <div class="tab-container">
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('configure')">⚙️ Configure Job</button>
+                    <button class="tab" onclick="switchTab('queue')">📋 Job Queue (<span
+                            id="queueCount">0</span>)</button>
+                </div>
+            </div>
+
+            <!-- Configure Tab -->
+            <div id="configureTab" class="tab-content active">
+                <form id="configForm">
+                    <!-- Task Type Selector -->
+                    <div class="section">
+                        <h2>Task Type</h2>
+                        <div class="mode-selector">
+                            <label class="mode-option selected" onclick="switchToTraining()">
+                                <input type="radio" name="task_type" value="train" checked>
+                                <h3>🎯 Training</h3>
+                                <p>Train a LoRA/DoRA/LoKR adapter on preprocessed tensors</p>
+                            </label>
+                            <label class="mode-option" onclick="switchToPreprocessing()">
+                                <input type="radio" name="task_type" value="preprocess">
+                                <h3>🔄 Preprocessing</h3>
+                                <p>Convert raw audio files to .pt training tensors</p>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Shared Configuration (shown for both task types) -->
+                    <div class="section">
+                        <h2>Model & Device</h2>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Checkpoint Directory *</label>
+                                <input type="text" name="checkpoint_dir" required placeholder="Windows: .\checkpoints or C:\ACE-Step\checkpoints | Linux: ./checkpoints">
+                                <span class="help-text">Path to ACE-Step checkpoints folder</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Model Variant</label>
+                                <input type="text" name="model_variant" value="turbo" placeholder="turbo, base, sft, or custom folder name">
+                                <span class="help-text">Official: turbo/base/sft. For fine-tunes: exact folder name</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Device</label>
+                                <select name="device">
+                                    <option value="auto" selected>Auto (detect best)</option>
+                                    <option value="cuda">CUDA (NVIDIA)</option>
+                                    <option value="cuda:0">CUDA:0</option>
+                                    <option value="cuda:1">CUDA:1</option>
+                                    <option value="mps">MPS (Apple Silicon)</option>
+                                    <option value="xpu">XPU (Intel)</option>
+                                    <option value="cpu">CPU</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Precision</label>
+                                <select name="precision">
+                                    <option value="auto" selected>Auto (bf16/fp16/fp32)</option>
+                                    <option value="bf16">BF16</option>
+                                    <option value="fp16">FP16</option>
+                                    <option value="fp32">FP32</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Training-specific sections (shown when task_type=train) -->
+                    <div id="trainingSections">
+
+                    <!-- Job Name -->
+                    <div class="section">
+                        <h2>Job Identification</h2>
+                        <div class="form-group">
+                            <label>Job Name (for your reference)</label>
+                            <input type="text" name="job_name"
+                                placeholder="e.g., 'Rank64_LR0001_Base' or 'Experiment_1'">
+                            <span class="help-text">Optional: helps you identify this job in the queue</span>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                Run Name (optional)
+                                <span class="help-icon" onclick="toggleHelp('help-run-name')">?</span>
+                            </label>
+                            <input type="text" name="run_name" placeholder="e.g., 'FMNICKS' or leave empty for auto">
+                            <span class="help-text">Organizational field - include this in your output directory path if
+                                you want it in your folder names</span>
+                            <div id="help-run-name" class="detailed-help">
+                                <h4>What is Run Name?</h4>
+                                <p><strong>Simple explanation:</strong> An organizational name for this training run. In
+                                    the wizard, this gets incorporated into the output path and TensorBoard logs. When
+                                    using this form, include it manually in your "Output Directory" path.</p>
+
+                                <p><strong>How to use it:</strong></p>
+                                <ul>
+                                    <li><strong>Wizard mode:</strong> The wizard automatically adds it to paths</li>
+                                    <li><strong>CLI/Form mode:</strong> Include it in your "Output Directory" field</li>
+                                </ul>
+
+                                <p><strong>Example:</strong></p>
+                                <ul>
+                                    <li><strong>Run Name:</strong> <code>FMNICKS</code></li>
+                                    <li><strong>Output Directory:</strong> <code>./output/Lora-FMNICKS-Turbo</code></li>
+                                    <li><strong>Result:</strong> Easy to identify this run later!</li>
+                                </ul>
+
+                                <p><strong>Naming ideas:</strong></p>
+                                <ul>
+                                    <li><code>FMNICKS</code> - Artist/project name</li>
+                                    <li><code>rock_music_v1</code> - Genre + version</li>
+                                    <li><code>experiment_rank128</code> - What you're testing</li>
+                                    <li><code>bass_boost_lora</code> - Descriptive feature</li>
+                                    <li>(leave empty) - No specific run name needed</li>
+                                </ul>
+
+                                <p><strong>Pro tip:</strong> Use consistent naming across your training runs to stay
+                                    organized when you have 10+ LoRAs!</p>
+
+                                <p><strong>Impact:</strong></p>
+                                <span class="impact-badge impact-neutral">Organization only - doesn't affect
+                                    training</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Required Paths -->
+                    <div class="section">
+                        <h2>Training Paths</h2>
+                        <div class="alert alert-info">
+                            <strong>💡 Path Format:</strong> Use your platform's native format. Windows:
+                            <code>C:\folder\subfolder</code> or Linux/Mac: <code>/home/user/folder</code>.
+                            Both absolute and relative paths work.
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Dataset Directory *
+                                    <span class="help-icon" onclick="toggleHelp('help-dataset-dir')">?</span>
+                                </label>
+                                <input type="text" name="dataset_dir" required
+                                    placeholder="Windows: E:\ace-step-dataset\FMNICKS\tensors | Linux: /data/my_tensors">
+                                <span class="help-text">Directory with preprocessed .pt files</span>
+                                <div id="help-dataset-dir" class="detailed-help">
+                                    <h4>What is Dataset Directory?</h4>
+                                    <p><strong>Simple explanation:</strong> The folder containing your preprocessed
+                                        training data (.pt files and manifest.json).</p>
+
+                                    <p><strong>Path format examples:</strong></p>
+                                    <ul>
+                                        <li><strong>Windows:</strong>
+                                            <ul>
+                                                <li><code>E:\ace-step-dataset\FMNICKS\tensors</code></li>
+                                                <li><code>C:\Users\YourName\Documents\my_training_data</code></li>
+                                                <li><code>.\data\tensors</code></li>
+                                            </ul>
+                                        </li>
+                                        <li><strong>Linux/Mac:</strong>
+                                            <ul>
+                                                <li><code>/home/user/ace-step-dataset/tensors</code></li>
+                                                <li><code>/mnt/data/my_music/preprocessed</code></li>
+                                                <li><code>./data/tensors</code></li>
+                                            </ul>
+                                        </li>
+                                    </ul>
+
+                                    <p><strong>What should be in this folder?</strong></p>
+                                    <ul>
+                                        <li><code>manifest.json</code> - Metadata file listing all samples</li>
+                                        <li><code>*.pt</code> files - Preprocessed tensor files (one per song)</li>
+                                        <li>Example: <code>track_001.pt</code>, <code>track_002.pt</code>, etc.</li>
+                                    </ul>
+
+                                    <p><strong>How to get this data:</strong></p>
+                                    <ul>
+                                        <li>Run preprocessing first (using the wizard or CLI)</li>
+                                        <li>Point "Audio Directory" to your raw audio files</li>
+                                        <li>Set "Tensor Output" to where you want .pt files saved</li>
+                                        <li>After preprocessing, use that same tensor output path here</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Output Directory *
+                                    <span class="help-icon" onclick="toggleHelp('help-output-dir')">?</span>
+                                </label>
+                                <input type="text" name="output_dir" required
+                                    placeholder="Windows: E:\output\Lora-FMNICKS-Turbo | Linux: ./output/my_lora">
+                                <span class="help-text">Where to save adapter weights and logs</span>
+                                <div id="help-output-dir" class="detailed-help">
+                                    <h4>What is Output Directory?</h4>
+                                    <p><strong>Simple explanation:</strong> Where your trained LoRA/LoKR weights will be
+                                        saved, along with checkpoints and TensorBoard logs.</p>
+
+                                    <p><strong>Path format examples:</strong></p>
+                                    <ul>
+                                        <li><strong>Windows:</strong>
+                                            <ul>
+                                                <li><code>E:\ace-step-dataset\FMNICKS\Lora-FMNICKS-Turbo</code></li>
+                                                <li><code>C:\Users\YourName\loras\my_rock_lora</code></li>
+                                                <li><code>.\output\experiment_1</code></li>
+                                            </ul>
+                                        </li>
+                                        <li><strong>Linux/Mac:</strong>
+                                            <ul>
+                                                <li><code>/home/user/loras/my_lora</code></li>
+                                                <li><code>/mnt/training/output/rock_music_v1</code></li>
+                                                <li><code>./output/my_lora</code></li>
+                                            </ul>
+                                        </li>
+                                    </ul>
+
+                                    <p><strong>What gets saved here:</strong></p>
+                                    <ul>
+                                        <li><code>adapter_model.safetensors</code> - Your trained LoRA weights (the
+                                            final result!)</li>
+                                        <li><code>adapter_config.json</code> - Configuration metadata</li>
+                                        <li><code>checkpoint-epoch-N/</code> - Checkpoint folders for resuming training
+                                        </li>
+                                        <li><code>runs/</code> - TensorBoard log files</li>
+                                        <li><code>training_args.json</code> - Record of all settings used</li>
+                                    </ul>
+
+                                    <p><strong>Naming tips:</strong></p>
+                                    <ul>
+                                        <li>Include run name: <code>Lora-FMNICKS-Turbo</code></li>
+                                        <li>Include model variant: <code>my_lora_base</code></li>
+                                        <li>Include experiment info: <code>rank128_lr0001</code></li>
+                                        <li>Stay organized: <code>./output/artist/experiment_1</code></li>
+                                    </ul>
+
+                                    <p><strong>⚠️ Note:</strong> This folder will be created if it doesn't exist. Make
+                                        sure the parent folder has write permissions.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Adapter Type Selection -->
+                    <div class="section" id="adapterSection">
+                        <h2>Adapter Type</h2>
+                        <div class="adapter-selector">
+                            <label class="adapter-option selected">
+                                <input type="radio" name="adapter_type" value="lora" checked>
+                                <h3>LoRA <span class="badge badge-recommended">Recommended</span></h3>
+                                <p>Low-Rank Adaptation (PEFT). Stable, well-tested, widely supported.</p>
+                            </label>
+                            <label class="adapter-option">
+                                <input type="radio" name="adapter_type" value="dora">
+                                <h3>DoRA</h3>
+                                <p>Weight-Decomposed Low-Rank Adaptation. Separates magnitude and direction.</p>
+                            </label>
+                            <label class="adapter-option">
+                                <input type="radio" name="adapter_type" value="lokr">
+                                <h3>LoKR <span class="badge badge-experimental">Experimental</span></h3>
+                                <p>Low-Rank Kronecker (LyCORIS). Uses Kronecker factorization.</p>
+                            </label>
+                            <label class="adapter-option">
+                                <input type="radio" name="adapter_type" value="loha">
+                                <h3>LoHA</h3>
+                                <p>Low-Rank Hadamard Product (LyCORIS). Good for capturing complex styles.</p>
+                            </label>
+                            <label class="adapter-option">
+                                <input type="radio" name="adapter_type" value="oft">
+                                <h3>OFT <span class="badge badge-experimental">Experimental</span></h3>
+                                <p>Orthogonal Finetuning. Preserves original model geometry well.</p>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- LoRA Configuration -->
+                    <div class="section" id="loraSection">
+                        <h2>LoRA Configuration</h2>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Rank
+                                    <span class="help-icon" onclick="toggleHelp('help-rank')">?</span>
+                                </label>
+                                <input type="number" name="rank" value="64" min="1">
+                                <span class="help-text">16=quick tests, 64=recommended, 128=max quality</span>
+                                <div id="help-rank" class="detailed-help">
+                                    <h4>What is Rank?</h4>
+                                    <p><strong>Simple explanation:</strong> Rank controls how much the AI can learn from
+                                        your data. Higher rank = more learning capacity, but uses more GPU memory.</p>
+                                    <p><strong>Think of it like:</strong> A notebook with more pages. Rank 16 is a small
+                                        notebook, Rank 128 is a thick textbook.</p>
+                                    <p><strong>Valid values:</strong> Any number from 1 to 256, but common choices are:
+                                    </p>
+                                    <ul>
+                                        <li><code>16</code> - Quick experiments, small datasets (1-5 songs)</li>
+                                        <li><code>32</code> - Small to medium datasets (5-10 songs)</li>
+                                        <li><code>64</code> - Recommended default for most use cases</li>
+                                        <li><code>128</code> - Large datasets (50+ songs), maximum quality</li>
+                                    </ul>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-vram">VRAM: Higher = More</span>
+                                    <span class="impact-badge impact-quality">Quality: Higher = Better (if you have
+                                        enough data)</span>
+                                    <span class="impact-badge impact-speed">Speed: Minimal impact</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Alpha
+                                    <span class="help-icon" onclick="toggleHelp('help-alpha')">?</span>
+                                </label>
+                                <input type="number" name="alpha" value="128" min="1">
+                                <span class="help-text">Usually 2x the rank</span>
+                                <div id="help-alpha" class="detailed-help">
+                                    <h4>What is Alpha?</h4>
+                                    <p><strong>Simple explanation:</strong> Alpha controls how strongly your trained
+                                        adapter affects the final output. It's like a volume knob for your training.</p>
+                                    <p><strong>Rule of thumb:</strong> Always set this to 2× your rank value:</p>
+                                    <ul>
+                                        <li>Rank 16 → Alpha 32</li>
+                                        <li>Rank 32 → Alpha 64</li>
+                                        <li>Rank 64 → Alpha 128</li>
+                                        <li>Rank 128 → Alpha 256</li>
+                                    </ul>
+                                    <p><strong>When to change:</strong> Almost never! The 2× rule works for 99% of
+                                        cases. Only advanced users experimenting with specific techniques should adjust
+                                        this.</p>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-neutral">VRAM: None</span>
+                                    <span class="impact-badge impact-quality">Quality: Stick to 2× rank rule</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Dropout
+                                    <span class="help-icon" onclick="toggleHelp('help-dropout')">?</span>
+                                </label>
+                                <input type="number" name="dropout" value="0.1" step="0.01" min="0" max="1">
+                                <span class="help-text">0.1 default, increase for small datasets (0.2-0.3)</span>
+                                <div id="help-dropout" class="detailed-help">
+                                    <h4>What is Dropout?</h4>
+                                    <p><strong>Simple explanation:</strong> Dropout randomly "turns off" some learning
+                                        during training. This prevents the AI from memorizing your specific songs
+                                        instead of learning the general style.</p>
+                                    <p><strong>Think of it like:</strong> Studying with occasional distractions. It
+                                        forces your brain to really understand the material, not just memorize answers.
+                                    </p>
+                                    <p><strong>Valid values:</strong> 0.0 to 0.5 (it's a percentage, so 0.1 = 10%)</p>
+                                    <ul>
+                                        <li><code>0.05</code> - Large datasets (50+ songs), very diverse styles</li>
+                                        <li><code>0.1</code> - Default, works for most cases</li>
+                                        <li><code>0.2-0.3</code> - Small datasets (1-10 songs), similar songs</li>
+                                    </ul>
+                                    <p><strong>Problem it solves:</strong> "Overfitting" - when the AI memorizes your
+                                        training songs instead of learning the style. Signs: perfect on training data,
+                                        bad on new generations.</p>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-neutral">VRAM: None</span>
+                                    <span class="impact-badge impact-quality">Quality: Prevents overfitting</span>
+                                    <span class="impact-badge impact-speed">Speed: None</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Attention Type
+                                    <span class="help-icon" onclick="toggleHelp('help-attention')">?</span>
+                                </label>
+                                <select name="attention_type">
+                                    <option value="both" selected>Both (self + cross, 192 modules)</option>
+                                    <option value="self">Self-attention only (audio patterns, 96 modules)</option>
+                                    <option value="cross">Cross-attention only (text conditioning, 96 modules)</option>
+                                </select>
+                                <div id="help-attention" class="detailed-help">
+                                    <h4>What is Attention Type?</h4>
+                                    <p><strong>Simple explanation:</strong> The AI has two types of "learning modules" -
+                                        one that learns about the music itself (self-attention), and one that learns how
+                                        text prompts connect to music (cross-attention).</p>
+                                    <p><strong>Your options:</strong></p>
+                                    <ul>
+                                        <li><strong>Both</strong> (default) - Train everything. The AI learns both the
+                                            music style AND how to follow your text prompts better.</li>
+                                        <li><strong>Self-attention only</strong> - Only train music patterns (rhythm,
+                                            instruments, mixing). Text prompts won't improve. Use if: training on
+                                            instrumental music only.</li>
+                                        <li><strong>Cross-attention only</strong> - Only train prompt understanding.
+                                            Music style stays the same, but AI gets better at following specific words.
+                                            Rare use case.</li>
+                                    </ul>
+                                    <p><strong>When to change:</strong> Stick with "Both" unless you're doing something
+                                        very specific. Self-only makes sense for instrumental-only training.</p>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-vram">VRAM: Both=most, Self/Cross=half</span>
+                                    <span class="impact-badge impact-quality">Quality: Both gives best results</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Target Modules
+                                    <span class="help-icon" onclick="toggleHelp('help-target-modules')">?</span>
+                                </label>
+                                <input type="text" name="target_modules" value="q_proj k_proj v_proj o_proj">
+                                <span class="help-text">Space-separated projection names</span>
+                                <div id="help-target-modules" class="detailed-help">
+                                    <h4>What are Target Modules?</h4>
+                                    <p><strong>Simple explanation:</strong> Inside each attention layer, there are 4
+                                        sub-parts (like 4 sub-workers). This setting chooses which sub-parts to train.
+                                    </p>
+                                    <p><strong>The four parts:</strong></p>
+                                    <ul>
+                                        <li><code>q_proj</code> - "Query" - asks "what should I pay attention to?"</li>
+                                        <li><code>k_proj</code> - "Key" - provides "here's what's important"</li>
+                                        <li><code>v_proj</code> - "Value" - holds the actual information</li>
+                                        <li><code>o_proj</code> - "Output" - combines everything together</li>
+                                    </ul>
+                                    <p><strong>How to write it:</strong> List the parts you want to train, separated by
+                                        spaces:</p>
+                                    <ul>
+                                        <li><code>q_proj k_proj v_proj o_proj</code> - Train all 4 (recommended)</li>
+                                        <li><code>q_proj v_proj</code> - Train only query and value (uses less VRAM)
+                                        </li>
+                                        <li><code>q_proj k_proj</code> - Just query and key (lightweight)</li>
+                                    </ul>
+                                    <p><strong>When to change:</strong> Only if you're low on VRAM or doing advanced
+                                        experiments. Training all 4 gives best results.</p>
+                                    <p><strong>Advanced:</strong> You can use the "estimate" mode to analyze which
+                                        modules matter most for YOUR specific music, then train only those.</p>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-vram">VRAM: More modules = More VRAM</span>
+                                    <span class="impact-badge impact-quality">Quality: All 4 = Best quality</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Bias
+                                    <span class="help-icon" onclick="toggleHelp('help-bias')">?</span>
+                                </label>
+                                <select name="bias">
+                                    <option value="none" selected>None</option>
+                                    <option value="all">All</option>
+                                    <option value="lora_only">LoRA only</option>
+                                </select>
+                                <div id="help-bias" class="detailed-help">
+                                    <h4>What is Bias?</h4>
+                                    <p><strong>Simple explanation:</strong> Bias is like a "starting point" in the math
+                                        that makes the AI work. This setting decides if we should also train those
+                                        starting points or leave them alone.</p>
+                                    <p><strong>Your options:</strong></p>
+                                    <ul>
+                                        <li><code>none</code> - Don't train bias values (default, recommended)</li>
+                                        <li><code>lora_only</code> - Train bias in your LoRA adapter only (slight
+                                            quality improvement)</li>
+                                        <li><code>all</code> - Train ALL bias values in the model (rarely needed)</li>
+                                    </ul>
+                                    <p><strong>When to change:</strong> Stick with "none" for 99% of use cases. Try
+                                        "lora_only" if you're experimenting and want a tiny potential quality boost.</p>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-vram">VRAM: Minimal increase</span>
+                                    <span class="impact-badge impact-quality">Quality: Minimal improvement</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Self-Attention Target Modules (optional)
+                                    <span class="help-icon" onclick="toggleHelp('help-self-target')">?</span>
+                                </label>
+                                <input type="text" name="self_target_modules"
+                                    placeholder="Leave empty to use main target modules">
+                                <span class="help-text">Custom projections for self-attention (when
+                                    attention-type=both)</span>
+                                <div id="help-self-target" class="detailed-help">
+                                    <h4>Advanced: Separate Targets for Self-Attention</h4>
+                                    <p><strong>What this does:</strong> Normally, the same target modules (q_proj,
+                                        k_proj, etc.) are used for both self-attention and cross-attention. This lets
+                                        you specify DIFFERENT targets for just the self-attention part.</p>
+                                    <p><strong>When to use:</strong> Only if you've run gradient estimation and
+                                        discovered that self-attention benefits from different modules than
+                                        cross-attention. This is an advanced optimization.</p>
+                                    <p><strong>Example:</strong> <code>q_proj v_proj</code> for self-attention, while
+                                        cross-attention uses all 4.</p>
+                                    <p><strong>Leave empty unless:</strong> You're an advanced user doing targeted
+                                        optimization based on estimation results.</p>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Cross-Attention Target Modules (optional)
+                                    <span class="help-icon" onclick="toggleHelp('help-cross-target')">?</span>
+                                </label>
+                                <input type="text" name="cross_target_modules"
+                                    placeholder="Leave empty to use main target modules">
+                                <span class="help-text">Custom projections for cross-attention (when
+                                    attention-type=both)</span>
+                                <div id="help-cross-target" class="detailed-help">
+                                    <h4>Advanced: Separate Targets for Cross-Attention</h4>
+                                    <p><strong>What this does:</strong> Lets you specify different target modules for
+                                        just the cross-attention layers (the part that learns about text prompts).</p>
+                                    <p><strong>When to use:</strong> Only if estimation shows cross-attention benefits
+                                        from different modules. Advanced optimization only.</p>
+                                    <p><strong>Leave empty unless:</strong> You're doing targeted optimization based on
+                                        gradient estimation.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LoKR Configuration -->
+                    <div class="section" id="lokrSection" style="display: none;">
+                        <h2>LoKR Configuration</h2>
+                        <div class="alert alert-warning">
+                            <strong>⚠️ Experimental:</strong> LoKR is less tested than LoRA. The LyCORIS library
+                            interaction with Lightning Fabric may have rough edges. If you encounter issues, fall back
+                            to LoRA.
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Linear Dimension
+                                    <span class="help-icon" onclick="toggleHelp('help-lokr-dim')">?</span>
+                                </label>
+                                <input type="number" name="lokr_linear_dim" value="64" min="1">
+                                <span class="help-text">Analogous to LoRA rank</span>
+                                <div id="help-lokr-dim" class="detailed-help">
+                                    <h4>What is Linear Dimension?</h4>
+                                    <p><strong>Simple explanation:</strong> Like LoRA's "rank" - controls how much the
+                                        adapter can learn. Higher = more capacity.</p>
+                                    <p><strong>Same guidance as LoRA rank:</strong></p>
+                                    <ul>
+                                        <li><code>16</code> - Quick tests</li>
+                                        <li><code>64</code> - Recommended default</li>
+                                        <li><code>128</code> - Maximum quality</li>
+                                    </ul>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-vram">VRAM: Higher = More</span>
+                                    <span class="impact-badge impact-quality">Quality: Higher = More capacity</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Linear Alpha
+                                    <span class="help-icon" onclick="toggleHelp('help-lokr-alpha')">?</span>
+                                </label>
+                                <input type="number" name="lokr_linear_alpha" value="128" min="1">
+                                <span class="help-text">Keep at 2x linear dim</span>
+                                <div id="help-lokr-alpha" class="detailed-help">
+                                    <h4>What is Linear Alpha?</h4>
+                                    <p><strong>Simple explanation:</strong> Like LoRA's "alpha" - controls adapter
+                                        strength. Keep at 2× linear dimension.</p>
+                                    <p><strong>Rule:</strong> Linear alpha = 2 × linear dimension</p>
+                                    <ul>
+                                        <li>Dim 16 → Alpha 32</li>
+                                        <li>Dim 64 → Alpha 128</li>
+                                        <li>Dim 128 → Alpha 256</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Factor
+                                    <span class="help-icon" onclick="toggleHelp('help-lokr-factor')">?</span>
+                                </label>
+                                <input type="number" name="lokr_factor" value="-1">
+                                <span class="help-text">Kronecker factorization factor (-1 = auto)</span>
+                                <div id="help-lokr-factor" class="detailed-help">
+                                    <h4>What is Factor?</h4>
+                                    <p><strong>Simple explanation:</strong> How to split up the Kronecker product math.
+                                        -1 = let the library figure it out automatically.</p>
+                                    <p><strong>Technical:</strong> Determines how the weight matrix is factorized into
+                                        Kronecker products.</p>
+                                    <p><strong>Recommendation:</strong> Leave at <code>-1</code> (auto) unless you
+                                        really know what you're doing.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="lokr_decompose_both" id="lokr_decompose">
+                            <label for="lokr_decompose">
+                                Decompose both Kronecker factors
+                                <span class="help-icon" onclick="toggleHelp('help-decompose-both')">?</span>
+                            </label>
+                        </div>
+                        <div id="help-decompose-both" class="detailed-help" style="margin-top: 10px;">
+                            <h4>What is "Decompose Both Kronecker Factors"?</h4>
+                            <p><strong>Ultra-simple explanation:</strong> Make the math even more compressed by breaking
+                                down BOTH parts of the Kronecker product instead of just one.</p>
+
+                            <p><strong>What's a Kronecker product?</strong> A mathematical way to represent large
+                                matrices using smaller ones:</p>
+                            <ul>
+                                <li><strong>Normal matrix:</strong> 1000×1000 = 1 million numbers</li>
+                                <li><strong>Kronecker:</strong> (10×10) ⊗ (100×100) = only 10,100 numbers! (100×
+                                    smaller)</li>
+                            </ul>
+
+                            <p><strong>Decompose one factor (default):</strong></p>
+                            <pre><code>Large Matrix = A ⊗ B
+Where A is kept full, B is decomposed</code></pre>
+
+                            <p><strong>Decompose both factors (this option):</strong></p>
+                            <pre><code>Large Matrix = (A₁ × A₂) ⊗ (B₁ × B₂)
+Where both A and B are decomposed</code></pre>
+
+                            <p><strong>Why would you enable this?</strong></p>
+                            <ul>
+                                <li><strong>Pro:</strong> Even more compression → saves VRAM</li>
+                                <li><strong>Pro:</strong> Fewer parameters → faster training</li>
+                                <li><strong>Con:</strong> Less capacity → might lose quality</li>
+                                <li><strong>Con:</strong> More complex math → potential instability</li>
+                            </ul>
+
+                            <p><strong>When to enable:</strong></p>
+                            <ul>
+                                <li>You're extremely tight on VRAM</li>
+                                <li>You want maximum compression</li>
+                                <li>You're doing experiments to see what works</li>
+                            </ul>
+
+                            <p><strong>When to leave disabled (default):</strong></p>
+                            <ul>
+                                <li>First time using LoKR (learn the basics first)</li>
+                                <li>You want maximum quality</li>
+                                <li>You have enough VRAM</li>
+                            </ul>
+
+                            <p><strong>Impact:</strong></p>
+                            <span class="impact-badge impact-vram">VRAM: Saves more memory</span>
+                            <span class="impact-badge impact-quality">Quality: May reduce capacity</span>
+                            <span class="impact-badge impact-neutral">Speed: Slightly faster training</span>
+                        </div>
+
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="lokr_use_tucker" id="lokr_tucker">
+                            <label for="lokr_tucker">
+                                Use Tucker decomposition
+                                <span class="help-icon" onclick="toggleHelp('help-tucker')">?</span>
+                            </label>
+                        </div>
+                        <div id="help-tucker" class="detailed-help" style="margin-top: 10px;">
+                            <h4>What is Tucker Decomposition?</h4>
+                            <p><strong>Ultra-simple explanation:</strong> An alternative mathematical method for
+                                compressing the adapter. Like choosing between ZIP and RAR compression formats.</p>
+
+                            <p><strong>The two methods:</strong></p>
+                            <ul>
+                                <li><strong>Kronecker decomposition (default):</strong> Splits matrix into two parts: A
+                                    ⊗ B</li>
+                                <li><strong>Tucker decomposition (this option):</strong> Splits into three parts with a
+                                    "core tensor": A × Core × B</li>
+                            </ul>
+
+                            <p><strong>Visual analogy:</strong></p>
+                            <pre><code>Kronecker (default):
+Large Matrix = [Left part] ⊗ [Right part]
+               Simple, direct
+
+Tucker (this option):
+Large Matrix = [Left] × [Core] × [Right]
+               Extra "core" in middle</code></pre>
+
+                            <p><strong>Characteristics of Tucker:</strong></p>
+                            <ul>
+                                <li><strong>More flexible:</strong> Core tensor adds degrees of freedom</li>
+                                <li><strong>Potentially better:</strong> Can capture different patterns than Kronecker
+                                </li>
+                                <li><strong>More complex:</strong> Three components instead of two</li>
+                                <li><strong>Less tested:</strong> Kronecker is more common in practice</li>
+                            </ul>
+
+                            <p><strong>When to enable:</strong></p>
+                            <ul>
+                                <li>Experimenting with different compression methods</li>
+                                <li>Kronecker isn't giving good results</li>
+                                <li>You're doing research or advanced optimization</li>
+                            </ul>
+
+                            <p><strong>When to leave disabled (default):</strong></p>
+                            <ul>
+                                <li>First time using LoKR</li>
+                                <li>You want proven, stable methods</li>
+                                <li>Kronecker is working fine</li>
+                            </ul>
+
+                            <p><strong>Real talk:</strong> This is like choosing between different compression
+                                algorithms. Most people should stick with the default (Kronecker) unless they're
+                                specifically researching decomposition methods.</p>
+
+                            <p><strong>Impact:</strong></p>
+                            <span class="impact-badge impact-vram">VRAM: Similar to Kronecker</span>
+                            <span class="impact-badge impact-quality">Quality: Different patterns, may be
+                                better/worse</span>
+                            <span class="impact-badge impact-neutral">Speed: Similar</span>
+                        </div>
+
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="lokr_use_scalar" id="lokr_scalar">
+                            <label for="lokr_scalar">
+                                Use scalar scaling
+                                <span class="help-icon" onclick="toggleHelp('help-scalar')">?</span>
+                            </label>
+                        </div>
+                        <div id="help-scalar" class="detailed-help" style="margin-top: 10px;">
+                            <h4>What is Scalar Scaling?</h4>
+                            <p><strong>Ultra-simple explanation:</strong> Add a single "volume knob" number that scales
+                                the entire adapter output up or down. Like a master volume control.</p>
+
+                            <p><strong>Without scalar scaling (default):</strong></p>
+                            <pre><code>Output = LoKR_matrix × Input
+Fixed strength</code></pre>
+
+                            <p><strong>With scalar scaling (this option):</strong></p>
+                            <pre><code>Output = scalar × (LoKR_matrix × Input)
+         ↑
+    Learned "volume knob"</code></pre>
+
+                            <p><strong>What it does:</strong></p>
+                            <ul>
+                                <li>Adds ONE extra learnable number (the scalar)</li>
+                                <li>This scalar multiplies the entire adapter output</li>
+                                <li>The network learns the best "volume" for this adapter</li>
+                            </ul>
+
+                            <p><strong>Benefits:</strong></p>
+                            <ul>
+                                <li><strong>Adaptive strength:</strong> Network learns how strongly to apply the adapter
+                                </li>
+                                <li><strong>Better balance:</strong> Can fine-tune the adapter's influence automatically
+                                </li>
+                                <li><strong>Minimal cost:</strong> Just one extra number per adapter</li>
+                            </ul>
+
+                            <p><strong>Example:</strong></p>
+                            <ul>
+                                <li>LoKR produces output: [0.5, 1.2, -0.3, ...]</li>
+                                <li>Learned scalar: 0.8</li>
+                                <li>Final output: [0.4, 0.96, -0.24, ...] (everything × 0.8)</li>
+                            </ul>
+
+                            <p><strong>When to enable:</strong></p>
+                            <ul>
+                                <li>You want the network to learn optimal adapter strength</li>
+                                <li>Experimenting with adaptive scaling</li>
+                                <li>Training seems to benefit from dynamic scaling</li>
+                            </ul>
+
+                            <p><strong>When to leave disabled (default):</strong></p>
+                            <ul>
+                                <li>First time using LoKR (keep it simple)</li>
+                                <li>You're using alpha for scaling (redundant)</li>
+                                <li>Training is working fine without it</li>
+                            </ul>
+
+                            <p><strong>Real talk:</strong> This is a very small experimental feature. The impact is
+                                usually minimal. Only use if you're specifically testing different scaling approaches.
+                            </p>
+
+                            <p><strong>Impact:</strong></p>
+                            <span class="impact-badge impact-neutral">VRAM: Negligible (1 number per adapter)</span>
+                            <span class="impact-badge impact-quality">Quality: May improve balance</span>
+                            <span class="impact-badge impact-neutral">Speed: Negligible</span>
+                        </div>
+
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="lokr_weight_decompose" id="lokr_dora">
+                            <label for="lokr_dora">
+                                DoRA-style weight decomposition
+                                <span class="help-icon" onclick="toggleHelp('help-dora')">?</span>
+                            </label>
+                        </div>
+                        <div id="help-dora" class="detailed-help" style="margin-top: 10px;">
+                            <h4>What is DoRA-style Weight Decomposition?</h4>
+                            <p><strong>Ultra-simple explanation:</strong> Separate the "direction" and "magnitude" of
+                                weight changes. Like separating "which way to turn" from "how much to turn."</p>
+
+                            <p><strong>Normal LoRA/LoKR (default):</strong></p>
+                            <pre><code>Weight_new = Weight_original + Adapter_change
+             ↑               ↑
+        Base weights    Changes everything at once
+                       (direction + magnitude)</code></pre>
+
+                            <p><strong>DoRA-style (this option):</strong></p>
+                            <pre><code>Weight_new = Magnitude × Direction
+             ↑           ↑         ↑
+        Final weight  How much  Which way
+
+Where:
+- Direction = normalized weight direction
+- Magnitude = learned scaling factor</code></pre>
+
+                            <p><strong>Car driving analogy:</strong></p>
+                            <ul>
+                                <li><strong>Normal method:</strong> Learn "turn left 45° AND accelerate to 50mph" as one
+                                    combined action</li>
+                                <li><strong>DoRA method:</strong> Learn "turn left 45°" (direction) and "go 50mph"
+                                    (magnitude) separately</li>
+                            </ul>
+
+                            <p><strong>Why DoRA?</strong> Research shows separating magnitude from direction can:</p>
+                            <ul>
+                                <li>Improve training stability</li>
+                                <li>Better preserve base model knowledge</li>
+                                <li>More efficient parameter updates</li>
+                                <li>Sometimes better quality results</li>
+                            </ul>
+
+                            <p><strong>The trade-offs:</strong></p>
+                            <ul>
+                                <li><strong>Pro:</strong> Can improve quality and stability</li>
+                                <li><strong>Pro:</strong> Better control over how adapter affects model</li>
+                                <li><strong>Con:</strong> More complex computation</li>
+                                <li><strong>Con:</strong> Slightly slower training (~10-15%)</li>
+                                <li><strong>Con:</strong> More memory overhead</li>
+                            </ul>
+
+                            <p><strong>When to enable:</strong></p>
+                            <ul>
+                                <li>You've read research on DoRA and want to try it</li>
+                                <li>Standard LoKR isn't giving good results</li>
+                                <li>You want maximum quality and don't mind slower training</li>
+                                <li>Training is unstable and you want better stability</li>
+                            </ul>
+
+                            <p><strong>When to leave disabled (default):</strong></p>
+                            <ul>
+                                <li>First time using LoKR (learn basics first)</li>
+                                <li>You want fastest training</li>
+                                <li>You're tight on VRAM</li>
+                                <li>Standard approach is working fine</li>
+                            </ul>
+
+                            <p><strong>Research context:</strong> DoRA (Weight-Decomposed Low-Rank Adaptation) is a 2024
+                                research technique that showed improvements over standard LoRA in some tasks. It's
+                                experimental but promising!</p>
+
+                            <p><strong>Impact:</strong></p>
+                            <span class="impact-badge impact-vram">VRAM: ~10-20% more memory</span>
+                            <span class="impact-badge impact-quality">Quality: May improve results</span>
+                            <span class="impact-badge impact-speed">Speed: ~10-15% slower training</span>
+                        </div>
+                    </div>
+
+                    <!-- LoHA Configuration -->
+                    <div class="section" id="lohaSection" style="display: none;">
+                        <h2>LoHA Configuration</h2>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Linear Dimension</label>
+                                <input type="number" name="loha_linear_dim" value="16" min="1">
+                                <span class="help-text">Analogous to LoRA rank</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Linear Alpha</label>
+                                <input type="number" name="loha_linear_alpha" value="16" min="1">
+                                <span class="help-text">Keep at similar to linear dim</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Factor</label>
+                                <input type="number" name="loha_factor" value="-1">
+                                <span class="help-text">Factorization (-1 = auto)</span>
+                            </div>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="loha_use_tucker" id="loha_tucker">
+                            <label for="loha_tucker">Use Tucker decomposition</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="loha_use_scalar" id="loha_scalar">
+                            <label for="loha_scalar">Use scalar scaling</label>
+                        </div>
+                    </div>
+
+                    <!-- OFT Configuration -->
+                    <div class="section" id="oftSection" style="display: none;">
+                        <h2>OFT Configuration</h2>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Block Size</label>
+                                <input type="number" name="oft_block_size" value="8" min="1">
+                                <span class="help-text">OFT block size</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Epsilon</label>
+                                <input type="number" name="oft_eps" value="0.001" step="0.0001">
+                                <span class="help-text">Epsilon for numerical stability</span>
+                            </div>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="oft_coft" id="oft_coft">
+                            <label for="oft_coft">Enable constrained OFT (Cayley projection)</label>
+                        </div>
+                    </div>
+
+                    <!-- Training Hyperparameters -->
+                    <div class="section" id="trainingSection">
+                        <h2>Training Hyperparameters</h2>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Learning Rate
+                                    <span class="help-icon" onclick="toggleHelp('help-lr')">?</span>
+                                </label>
+                                <input type="number" name="learning_rate" value="0.0003" step="0.0001">
+                                <span class="help-text">Beta 1 default: 3e-4 (was 1e-4 in Alpha)</span>
+                                <div id="help-lr" class="detailed-help">
+                                    <h4>What is Learning Rate?</h4>
+                                    <p><strong>Simple explanation:</strong> How big of a "step" the AI takes when
+                                        learning. Too big = learning goes haywire. Too small = takes forever to learn.
+                                    </p>
+                                    <p><strong>Think of it like:</strong> Walking speed while learning to navigate.
+                                        Sprint = fast but might miss things or crash. Crawl = safe but takes ages.</p>
+                                    <p><strong>Common values:</strong></p>
+                                    <ul>
+                                        <li><code>0.0001</code> (or 1e-4) - Standard default, safe for most cases</li>
+                                        <li><code>0.00005</code> (or 5e-5) - More stable, use if training is unstable
+                                        </li>
+                                        <li><code>0.0002</code> (or 2e-4) - Faster learning, riskier</li>
+                                        <li><code>1.0</code> - ONLY for Prodigy optimizer (it auto-adjusts internally)
+                                        </li>
+                                    </ul>
+                                    <p><strong>How to write it:</strong> Can use either format:</p>
+                                    <ul>
+                                        <li><code>0.0001</code> = <code>1e-4</code> (scientific notation)</li>
+                                        <li><code>0.00005</code> = <code>5e-5</code></li>
+                                    </ul>
+                                    <p><strong>Signs you need to adjust:</strong></p>
+                                    <ul>
+                                        <li>Loss jumping all over → Lower LR (try 5e-5)</li>
+                                        <li>Loss barely changing after many epochs → Higher LR (try 2e-4)</li>
+                                    </ul>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-neutral">VRAM: None</span>
+                                    <span class="impact-badge impact-quality">Quality: Critical tuning parameter</span>
+                                    <span class="impact-badge impact-speed">Speed: Higher = faster learning (but less
+                                        stable)</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Batch Size
+                                    <span class="help-icon" onclick="toggleHelp('help-batch')">?</span>
+                                </label>
+                                <input type="number" name="batch_size" value="1" min="1">
+                                <span class="help-text">Usually 1 for music (large tensors)</span>
+                                <div id="help-batch" class="detailed-help">
+                                    <h4>What is Batch Size?</h4>
+                                    <p><strong>Simple explanation:</strong> How many songs the AI looks at before
+                                        updating what it learned. Batch size 1 = look at 1 song, update. Batch size 4 =
+                                        look at 4 songs, then update.</p>
+                                    <p><strong>Think of it like:</strong> Studying flashcards. Batch 1 = adjust after
+                                        each card. Batch 10 = see 10 cards, then adjust your strategy.</p>
+                                    <p><strong>Why it's usually 1 for music:</strong> Music files are HUGE (30-240
+                                        seconds of audio). Each song takes a lot of GPU memory. Batch size 2 would need
+                                        double the memory.</p>
+                                    <p><strong>When to change:</strong></p>
+                                    <ul>
+                                        <li><strong>Keep at 1</strong> - If you're using default settings</li>
+                                        <li><strong>Try 2</strong> - Only if you have 24GB+ VRAM and want slightly
+                                            smoother training</li>
+                                        <li><strong>Never go higher</strong> - Unless you have 80GB+ VRAM</li>
+                                    </ul>
+                                    <p><strong>Pro tip:</strong> Use "Gradient Accumulation" instead! It gives you the
+                                        benefits of larger batch sizes without using more VRAM.</p>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-vram">VRAM: Higher = MUCH more VRAM</span>
+                                    <span class="impact-badge impact-quality">Quality: Minimal impact</span>
+                                    <span class="impact-badge impact-speed">Speed: Higher = slightly faster per
+                                        epoch</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Gradient Accumulation
+                                    <span class="help-icon" onclick="toggleHelp('help-grad-accum')">?</span>
+                                </label>
+                                <input type="number" name="gradient_accumulation" value="4" min="1">
+                                <span class="help-text">Effective batch = batch × accumulation</span>
+                                <div id="help-grad-accum" class="detailed-help">
+                                    <h4>What is Gradient Accumulation?</h4>
+                                    <p><strong>Simple explanation:</strong> A clever trick to get the benefits of large
+                                        batch sizes WITHOUT using more GPU memory. It "accumulates" learning from
+                                        multiple songs before updating.</p>
+                                    <p><strong>Think of it like:</strong> Taking notes while studying 4 flashcards, THEN
+                                        updating your strategy once. Same learning benefit as batch size 4, but you only
+                                        hold 1 card at a time.</p>
+                                    <p><strong>How it works:</strong></p>
+                                    <ul>
+                                        <li>Batch size 1, Grad accumulation 4 = "Effective batch of 4"</li>
+                                        <li>Look at song 1, take notes</li>
+                                        <li>Look at song 2, add to notes</li>
+                                        <li>Look at song 3, add to notes</li>
+                                        <li>Look at song 4, add to notes</li>
+                                        <li>NOW update the model with all 4 songs' worth of info</li>
+                                    </ul>
+                                    <p><strong>Common values:</strong></p>
+                                    <ul>
+                                        <li><code>4</code> - Good default (effective batch of 4)</li>
+                                        <li><code>8</code> - Smoother learning, slower updates</li>
+                                        <li><code>2</code> - Faster updates, less smooth</li>
+                                        <li><code>1</code> - No accumulation (update after every song)</li>
+                                    </ul>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-neutral">VRAM: ZERO impact (that's the
+                                        magic!)</span>
+                                    <span class="impact-badge impact-quality">Quality: Higher = smoother, more stable
+                                        learning</span>
+                                    <span class="impact-badge impact-speed">Speed: Higher = fewer updates per epoch
+                                        (slightly slower)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Epochs
+                                    <span class="help-icon" onclick="toggleHelp('help-epochs')">?</span>
+                                </label>
+                                <input type="number" name="epochs" value="100" min="1">
+                                <span class="help-text">1-10 songs: 200-500, 10-50: 100-200, 50+: 50-100</span>
+                                <div id="help-epochs" class="detailed-help">
+                                    <h4>What are Epochs?</h4>
+                                    <p><strong>Simple explanation:</strong> How many times the AI goes through your
+                                        entire dataset. 1 epoch = seeing every song once. 100 epochs = seeing every song
+                                        100 times.</p>
+                                    <p><strong>Think of it like:</strong> How many times you review your study
+                                        materials. 1 pass = skim once. 100 passes = really know it well.</p>
+                                    <p><strong>How many should you use?</strong> Depends on dataset size:</p>
+                                    <ul>
+                                        <li><strong>1-10 songs:</strong> 200-500 epochs (small dataset needs lots of
+                                            repetition)</li>
+                                        <li><strong>10-50 songs:</strong> 100-200 epochs</li>
+                                        <li><strong>50+ songs:</strong> 50-100 epochs (large dataset needs fewer passes)
+                                        </li>
+                                    </ul>
+                                    <p><strong>How do you know when to stop?</strong></p>
+                                    <ul>
+                                        <li>Watch the loss curve in TensorBoard</li>
+                                        <li>If loss stops decreasing = you can probably stop</li>
+                                        <li>If loss starts INCREASING = you've overtrained (stop earlier next time)</li>
+                                    </ul>
+                                    <p><strong>Can you stop early?</strong> YES! If you're watching TensorBoard and loss
+                                        plateaus at epoch 60, you can stop. No need to waste time on 40 more epochs.</p>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-neutral">VRAM: None</span>
+                                    <span class="impact-badge impact-quality">Quality: More = better (until
+                                        overfitting)</span>
+                                    <span class="impact-badge impact-speed">Speed: More = longer training time</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Warmup Steps
+                                    <span class="help-icon" onclick="toggleHelp('help-warmup')">?</span>
+                                </label>
+                                <input type="number" name="warmup_steps" value="100" min="0">
+                                <span class="help-text">LR ramps from 10% to 100%</span>
+                                <div id="help-warmup" class="detailed-help">
+                                    <h4>What are Warmup Steps?</h4>
+                                    <p><strong>Simple explanation:</strong> Instead of starting at full learning rate
+                                        immediately, we gradually increase it over the first N steps. Like warming up
+                                        before exercise.</p>
+                                    <p><strong>Why?</strong> Starting at full learning rate can sometimes cause the AI
+                                        to "freak out" and learn bad patterns in the first few steps. Warmup prevents
+                                        this.</p>
+                                    <p><strong>How it works:</strong></p>
+                                    <ul>
+                                        <li>Step 1-10: Learning rate at 10%</li>
+                                        <li>Step 11-50: Gradually increase to 50%</li>
+                                        <li>Step 51-100: Gradually increase to 100%</li>
+                                        <li>Step 101+: Stay at 100% (or follow scheduler)</li>
+                                    </ul>
+                                    <p><strong>Common values:</strong></p>
+                                    <ul>
+                                        <li><code>100</code> - Good default</li>
+                                        <li><code>200-500</code> - Use if training is unstable at the start</li>
+                                        <li><code>0</code> - No warmup (riskier)</li>
+                                    </ul>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-neutral">VRAM: None</span>
+                                    <span class="impact-badge impact-quality">Quality: Prevents early instability</span>
+                                    <span class="impact-badge impact-neutral">Speed: Negligible</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Random Seed</label>
+                                <input type="number" name="seed" value="42" min="0">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Weight Decay</label>
+                                <input type="number" name="weight_decay" value="0.01" step="0.001">
+                                <span class="help-text">L2 regularization (0.01 default)</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Max Gradient Norm</label>
+                                <input type="number" name="max_grad_norm" value="1.0" step="0.1">
+                                <span class="help-text">Gradient clipping threshold</span>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Chunk Duration (Latent Chunking)
+                                    <span class="help-icon" onclick="toggleHelp('help-chunk')">?</span>
+                                </label>
+                                <input type="number" name="chunk_duration" value="0" min="0">
+                                <span class="help-text">Random latent window per iteration (0=disabled,
+                                    60-90=recommended). Saves VRAM + data augmentation.</span>
+                                <div id="help-chunk" class="detailed-help">
+                                    <h4>What is Latent Chunking?</h4>
+                                    <p><strong>Simple explanation:</strong> Instead of training on the entire song every
+                                        time, randomly pick a shorter section (e.g., 60-90 seconds). This provides two
+                                        major benefits: saves VRAM and acts as data augmentation.</p>
+
+                                    <p><strong>How it works:</strong></p>
+                                    <ul>
+                                        <li>Each training iteration, a random window is extracted from each song</li>
+                                        <li>The model sees different parts of the same song every epoch</li>
+                                        <li>Like practicing random 60-second clips instead of the full 3-minute song
+                                        </li>
+                                    </ul>
+
+                                    <p><strong>Benefits:</strong></p>
+                                    <ul>
+                                        <li><strong>Saves VRAM:</strong> Shorter audio = much less memory needed</li>
+                                        <li><strong>Data augmentation:</strong> Same song becomes multiple training
+                                            samples (different random chunks each iteration)</li>
+                                        <li><strong>Prevents overfitting:</strong> AI can't memorize full songs when it
+                                            only sees random parts</li>
+                                        <li><strong>Enables longer songs:</strong> Train on 5-minute songs even with
+                                            limited VRAM</li>
+                                    </ul>
+
+                                    <p><strong>⚠️ CRITICAL WARNING:</strong></p>
+                                    <p
+                                        style="background: #fff3cd; padding: 10px; border-left: 4px solid #ffc107; margin: 10px 0;">
+                                        <strong>Chunks shorter than 60 seconds can HURT training quality instead of
+                                            enriching it.</strong> Use shorter chunks only if you need to reduce VRAM
+                                        and understand the trade-off. The AI needs enough context to learn musical
+                                        structure.
+                                    </p>
+
+                                    <p><strong>Recommended values:</strong></p>
+                                    <ul>
+                                        <li><code>0</code> - Disabled (use full songs)</li>
+                                        <li><code>60</code> - Minimum recommended for quality (1 minute chunks)</li>
+                                        <li><code>90</code> - Sweet spot - good quality + VRAM savings (1.5 minute
+                                            chunks)</li>
+                                        <li><code>120</code> - Conservative option (2 minute chunks)</li>
+                                    </ul>
+
+                                    <p><strong>When to use:</strong></p>
+                                    <ul>
+                                        <li><strong>Enable (60-90):</strong> Training on songs longer than 2 minutes
+                                        </li>
+                                        <li><strong>Enable (60-90):</strong> Running out of VRAM with full-length songs
+                                        </li>
+                                        <li><strong>Enable (90-120):</strong> Want extra data augmentation on long songs
+                                        </li>
+                                        <li><strong>Disable (0):</strong> Your songs are already short (under 2 minutes)
+                                        </li>
+                                        <li><strong>Disable (0):</strong> You have plenty of VRAM (24GB+) and want to
+                                            train on full songs</li>
+                                    </ul>
+
+                                    <p><strong>Example scenarios:</strong></p>
+                                    <ul>
+                                        <li><strong>3-minute songs, 16GB VRAM:</strong> Use 90 seconds</li>
+                                        <li><strong>5-minute songs, 12GB VRAM:</strong> Use 60 seconds</li>
+                                        <li><strong>1-minute songs, any VRAM:</strong> Disable (use 0)</li>
+                                        <li><strong>4-minute songs, 24GB VRAM:</strong> Optional - use 90-120 for
+                                            augmentation or 0 for full songs</li>
+                                    </ul>
+
+                                    <p><strong>Technical note:</strong> This slices the preprocessed latent tensors (not
+                                        raw audio), so chunks are calculated in latent space. The number you enter is
+                                        approximate seconds of the original audio.</p>
+
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-vram">VRAM: Significant savings (proportional to
+                                        chunk size)</span>
+                                    <span class="impact-badge impact-quality">Quality: 60+ = safe, <60=risky</span>
+                                            <span class="impact-badge impact-speed">Speed: Faster per step (smaller
+                                                chunks)</span>
+                                            <span class="impact-badge impact-quality">Data Aug: More variety in
+                                                training</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Shift (inference metadata)</label>
+                                <input type="number" name="shift" value="3.0" step="0.1">
+                                <span class="help-text">Auto-set: turbo=3.0, base/sft=1.0. Stored for inference, doesn't
+                                    affect training</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Num Inference Steps (metadata)</label>
+                                <input type="number" name="num_inference_steps" value="8" min="1">
+                                <span class="help-text">Auto-set: turbo=8, base/sft=50. Stored for inference</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CFG & Loss Settings -->
+                    <div class="section" id="cfgLossSection">
+                        <h2>CFG & Loss Settings (Base/SFT only)</h2>
+                        <div class="alert alert-info">
+                            These settings are auto-disabled for turbo models
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>CFG Dropout Ratio</label>
+                                <input type="number" name="cfg_ratio" value="0.15" step="0.01" min="0" max="1">
+                                <span class="help-text">Null-condition probability. Base trained with 0.15 - match
+                                    it</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Loss Weighting</label>
+                                <select name="loss_weighting">
+                                    <option value="none" selected>None (flat MSE)</option>
+                                    <option value="min_snr">Min-SNR (rebalances across noise levels)</option>
+                                </select>
+                                <span class="help-text">Try min_snr if base/sft output sounds mushy</span>
+                            </div>
+                            <div class="form-group">
+                                <label>SNR Gamma</label>
+                                <input type="number" name="snr_gamma" value="5.0" step="0.1">
+                                <span class="help-text">Aggressiveness of min-SNR (only with min_snr)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Optimizer & Scheduler -->
+                    <div class="section" id="optimizerSection">
+                        <h2>Optimizer & Scheduler</h2>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Optimizer
+                                    <span class="help-icon" onclick="toggleHelp('help-optimizer')">?</span>
+                                </label>
+                                <select name="optimizer_type">
+                                    <option value="adamw">AdamW (full precision)</option>
+                                    <option value="adamw8bit" selected>AdamW8bit (Beta 1 default - saves ~30% VRAM)</option>
+                                    <option value="adafactor">AdaFactor (minimal state)</option>
+                                    <option value="prodigy">Prodigy (auto-tune LR, set LR to 1.0)</option>
+                                </select>
+                                <div id="help-optimizer" class="detailed-help">
+                                    <h4>What is an Optimizer?</h4>
+                                    <p><strong>Simple explanation:</strong> The optimizer is the "brain" that decides
+                                        HOW to update the AI based on what it learned. Different optimizers have
+                                        different strategies and memory requirements.</p>
+                                    <p><strong>Your choices:</strong></p>
+                                    <ul>
+                                        <li><strong>AdamW</strong> (default) - Industry standard. Reliable, well-tested,
+                                            works for 99% of cases. Needs moderate VRAM for its "memory" of past
+                                            training.</li>
+                                        <li><strong>AdamW8bit</strong> - Same as AdamW but uses compressed memory. Saves
+                                            ~30% of optimizer VRAM with virtually no quality loss. USE THIS if you're
+                                            running out of VRAM!</li>
+                                        <li><strong>AdaFactor</strong> - Uses minimal memory by being "forgetful" about
+                                            past training. Only for extreme VRAM constraints (<8GB). Slightly worse
+                                                quality.</li>
+                                        <li><strong>Prodigy</strong> - Experimental "autopilot" that figures out the
+                                            best learning rate automatically. Set LR to 1.0 and let it tune itself. Can
+                                            be unstable.</li>
+                                    </ul>
+                                    <p><strong>Recommendation:</strong></p>
+                                    <ul>
+                                        <li><strong>Have 16GB+ VRAM?</strong> Use AdamW</li>
+                                        <li><strong>Have 10-16GB VRAM?</strong> Use AdamW8bit</li>
+                                        <li><strong>Have <10GB VRAM?</strong> Use AdamW8bit or AdaFactor</li>
+                                        <li><strong>Want to experiment?</strong> Try Prodigy (but set LR to 1.0!)</li>
+                                    </ul>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-vram">VRAM: 8bit saves 30%, AdaFactor saves
+                                        50%</span>
+                                    <span class="impact-badge impact-quality">Quality: AdamW=AdamW8bit > AdaFactor,
+                                        Prodigy varies</span>
+                                    <span class="impact-badge impact-speed">Speed: All roughly similar</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Scheduler
+                                    <span class="help-icon" onclick="toggleHelp('help-scheduler')">?</span>
+                                </label>
+                                <select name="scheduler_type">
+                                    <option value="cosine" selected>Cosine</option>
+                                    <option value="cosine_restarts">Cosine with Restarts</option>
+                                    <option value="linear">Linear</option>
+                                    <option value="constant">Constant (use with Prodigy)</option>
+                                    <option value="constant_with_warmup">Constant with Warmup</option>
+                                </select>
+                                <span class="help-text">Prodigy auto-forces 'constant'</span>
+                                <div id="help-scheduler" class="detailed-help">
+                                    <h4>What is a Scheduler?</h4>
+                                    <p><strong>Simple explanation:</strong> Controls how the learning rate changes over
+                                        time. Think of it like adjusting your study intensity as the semester
+                                        progresses.</p>
+                                    <p><strong>Visual analogy:</strong></p>
+                                    <ul>
+                                        <li><strong>Constant:</strong> Study at same intensity every day ————————</li>
+                                        <li><strong>Linear:</strong> Gradually study less and less ————\</li>
+                                        <li><strong>Cosine:</strong> Study hard, then taper off smoothly ————\___</li>
+                                        <li><strong>Cosine with Restarts:</strong> Periodic "sprints" ——\__/——\__/</li>
+                                    </ul>
+                                    <p><strong>Your choices:</strong></p>
+                                    <ul>
+                                        <li><strong>Cosine</strong> (default) - Smooth curve down. Starts strong, ends
+                                            gentle. Best for most cases.</li>
+                                        <li><strong>Linear</strong> - Straight line down. Predictable, but less commonly
+                                            used.</li>
+                                        <li><strong>Constant</strong> - Never change LR. Required for Prodigy optimizer.
+                                            Rarely used otherwise.</li>
+                                        <li><strong>Constant with Warmup</strong> - Warm up at start, then stay flat.
+                                            Simple and effective.</li>
+                                        <li><strong>Cosine with Restarts</strong> - Periodic "bounces" back to higher
+                                            LR. Advanced, can help escape plateaus.</li>
+                                    </ul>
+                                    <p><strong>Which to choose:</strong></p>
+                                    <ul>
+                                        <li><strong>Default case:</strong> Use Cosine</li>
+                                        <li><strong>Using Prodigy:</strong> It forces Constant automatically</li>
+                                        <li><strong>Want simplicity:</strong> Constant with Warmup</li>
+                                        <li><strong>Experimenting:</strong> Try Cosine with Restarts</li>
+                                    </ul>
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-neutral">VRAM: None</span>
+                                    <span class="impact-badge impact-quality">Quality: Cosine generally best</span>
+                                    <span class="impact-badge impact-neutral">Speed: None</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Memory Optimization -->
+                    <div class="section">
+                        <h2>Memory Optimization</h2>
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="gradient_checkpointing" id="grad_check" checked>
+                            <label for="grad_check">
+                                Gradient Checkpointing (ON by default, saves ~40-60% VRAM, ~10-30% slower)
+                                <span class="help-icon" onclick="toggleHelp('help-grad-checkpoint')">?</span>
+                            </label>
+                        </div>
+                        <div id="help-grad-checkpoint" class="detailed-help">
+                            <h4>What is Gradient Checkpointing?</h4>
+                            <p><strong>Simple explanation:</strong> A memory-saving trick where we throw away some
+                                intermediate calculations and recalculate them later when needed. Uses less VRAM but
+                                takes a bit more time.</p>
+                            <p><strong>Think of it like:</strong> Instead of keeping all your scratch paper (uses desk
+                                space), you erase it and redo the math later when grading (takes more time but less
+                                space).</p>
+                            <p><strong>The trade-off:</strong></p>
+                            <ul>
+                                <li><strong>Saves:</strong> 40-60% of VRAM (HUGE savings!)</li>
+                                <li><strong>Costs:</strong> 10-30% slower training (you're doing some calculations
+                                    twice)</li>
+                            </ul>
+                            <p><strong>Should you use it?</strong></p>
+                            <ul>
+                                <li><strong>YES</strong> - If you have <24GB VRAM (almost everyone)</li>
+                                <li><strong>YES</strong> - If you're running out of memory</li>
+                                <li><strong>MAYBE NO</strong> - If you have 80GB+ VRAM and want max speed</li>
+                            </ul>
+                            <p><strong>Default:</strong> ON (matches original Side-Step trainer behavior). Unless you
+                                have massive VRAM and want maximum speed, keep this ON.</p>
+                            <p><strong>Impact:</strong></p>
+                            <span class="impact-badge impact-vram">VRAM: Saves 40-60% (CRITICAL for most users)</span>
+                            <span class="impact-badge impact-speed">Speed: 10-30% slower training</span>
+                            <span class="impact-badge impact-quality">Quality: No impact</span>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="offload_encoder" id="offload">
+                            <label for="offload">
+                                Offload Encoder to CPU (frees ~2-4GB VRAM after setup)
+                                <span class="help-icon" onclick="toggleHelp('help-offload')">?</span>
+                            </label>
+                        </div>
+                        <div id="help-offload" class="detailed-help">
+                            <h4>What is Encoder Offloading?</h4>
+                            <p><strong>Simple explanation:</strong> Some parts of the AI (VAE and text encoders) are
+                                only needed at the start. After setup, we move them to regular RAM instead of keeping
+                                them on the GPU. This frees up GPU memory for training.</p>
+                            <p><strong>Think of it like:</strong> Moving reference books from your desk to a bookshelf
+                                after you've taken notes. You already have what you need, so free up the desk space.</p>
+                            <p><strong>How much does it save?</strong> About 2-4GB of VRAM (exact amount depends on the
+                                model).</p>
+                            <p><strong>Does it slow things down?</strong> NO! These components aren't used during
+                                training anyway, so moving them to CPU has zero speed impact.</p>
+                            <p><strong>Should you use it?</strong></p>
+                            <ul>
+                                <li><strong>YES</strong> - If you have 10-16GB VRAM</li>
+                                <li><strong>YES</strong> - If you're getting out-of-memory errors</li>
+                                <li><strong>MAYBE</strong> - If you have <10GB VRAM (enable it!)</li>
+                                <li><strong>NO</strong> - If you have 24GB+ VRAM (not needed)</li>
+                            </ul>
+                            <p><strong>Fun fact:</strong> This is a "free lunch" optimization - saves memory with no
+                                downsides!</p>
+                            <p><strong>Impact:</strong></p>
+                            <span class="impact-badge impact-vram">VRAM: Frees 2-4GB</span>
+                            <span class="impact-badge impact-neutral">Speed: Zero impact</span>
+                            <span class="impact-badge impact-neutral">Quality: Zero impact</span>
+                        </div>
+                    </div>
+
+                    <!-- Data Loading -->
+                    <div class="section">
+                        <h2>Data Loading</h2>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Number of Workers
+                                    <span class="help-icon" onclick="toggleHelp('help-workers')">?</span>
+                                </label>
+                                <input type="number" name="num_workers" value="4" min="0">
+                                <span class="help-text">Default: 4 (Linux), 0 (Windows). Set to 0 if low on RAM</span>
+                                <div id="help-workers" class="detailed-help">
+                                    <h4>What are Data Loading Workers?</h4>
+                                    <p><strong>Simple explanation:</strong> "Workers" are separate helper processes that
+                                        load your training data from disk while the GPU is busy training. More workers =
+                                        faster data loading, but uses more RAM.</p>
+
+                                    <p><strong>Think of it like:</strong> A restaurant kitchen with multiple prep cooks
+                                        (workers). While the head chef (GPU) is cooking, prep cooks are chopping
+                                        ingredients (loading data) so the chef never has to wait.</p>
+
+                                    <p><strong>How it works:</strong></p>
+                                    <ul>
+                                        <li><strong>0 workers:</strong> Main process does everything. GPU waits while
+                                            data loads from disk.</li>
+                                        <li><strong>1 worker:</strong> One helper process loads next batch while GPU
+                                            trains on current batch.</li>
+                                        <li><strong>4 workers:</strong> Four helpers load data in parallel. GPU almost
+                                            never waits.</li>
+                                        <li><strong>8+ workers:</strong> Even more parallel loading, but diminishing
+                                            returns.</li>
+                                    </ul>
+
+                                    <p><strong>Platform defaults:</strong></p>
+                                    <ul>
+                                        <li><strong>Linux/Mac:</strong> Default 4 workers (multiprocessing works well)
+                                        </li>
+                                        <li><strong>Windows:</strong> Default 0 workers (Windows multiprocessing has
+                                            issues)</li>
+                                    </ul>
+
+                                    <p><strong>Recommended values:</strong></p>
+                                    <ul>
+                                        <li><code>0</code> - Windows (default), or very low RAM (<8GB)< /li>
+                                        <li><code>2</code> - Dual-core CPU, moderate RAM (8-16GB)</li>
+                                        <li><code>4</code> - Quad-core+ CPU, good RAM (16GB+) - recommended for Linux
+                                        </li>
+                                        <li><code>6-8</code> - High-end CPU, lots of RAM (32GB+)</li>
+                                    </ul>
+
+                                    <p><strong>When to increase:</strong></p>
+                                    <ul>
+                                        <li>You have a fast GPU but slow disk (SSD helps too!)</li>
+                                        <li>TensorBoard shows GPU utilization dropping between batches</li>
+                                        <li>You have lots of CPU cores and RAM to spare</li>
+                                    </ul>
+
+                                    <p><strong>When to decrease (or use 0):</strong></p>
+                                    <ul>
+                                        <li><strong>On Windows:</strong> Multiprocessing can cause crashes/hangs</li>
+                                        <li><strong>Low RAM:</strong> Each worker loads data into memory</li>
+                                        <li><strong>Memory leaks:</strong> If RAM usage grows over time</li>
+                                        <li><strong>Crashes during data loading:</strong> Try 0 to debug</li>
+                                    </ul>
+
+                                    <p><strong>⚠️ Windows Warning:</strong> Windows has known issues with PyTorch
+                                        multiprocessing. If training hangs at data loading or you get errors, set this
+                                        to <code>0</code>.</p>
+
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-vram">GPU VRAM: No impact</span>
+                                    <span class="impact-badge impact-neutral">CPU RAM: Each worker uses ~2-4GB</span>
+                                    <span class="impact-badge impact-speed">Speed: More workers = faster (if you have
+                                        RAM)</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Prefetch Factor
+                                    <span class="help-icon" onclick="toggleHelp('help-prefetch')">?</span>
+                                </label>
+                                <input type="number" name="prefetch_factor" value="2" min="0">
+                                <span class="help-text">Default: 2 (Linux), 0 (Windows)</span>
+                                <div id="help-prefetch" class="detailed-help">
+                                    <h4>What is Prefetch Factor?</h4>
+                                    <p><strong>Simple explanation:</strong> How many batches AHEAD each worker loads
+                                        into memory. Higher = smoother training but uses more RAM.</p>
+
+                                    <p><strong>Think of it like:</strong> A buffer at a streaming video service.
+                                        Prefetch factor 2 = load 2 batches ahead. If GPU suddenly speeds up, you have
+                                        data ready immediately.</p>
+
+                                    <p><strong>How it works:</strong></p>
+                                    <ul>
+                                        <li><strong>Prefetch 0:</strong> Workers only load when GPU asks. Can cause
+                                            waiting.</li>
+                                        <li><strong>Prefetch 2:</strong> Each worker keeps 2 batches loaded ahead.
+                                            Smooth flow.</li>
+                                        <li><strong>Prefetch 4+:</strong> Even more buffer, but uses lots of RAM.</li>
+                                    </ul>
+
+                                    <p><strong>Math:</strong> Total memory used =
+                                        <code>num_workers × prefetch_factor × batch_size × data_size</code></p>
+                                    <ul>
+                                        <li>4 workers × 2 prefetch × 1 batch × 500MB per song = 4GB RAM used for
+                                            prefetching</li>
+                                    </ul>
+
+                                    <p><strong>Recommended values:</strong></p>
+                                    <ul>
+                                        <li><code>0</code> - Windows (default, since num_workers is 0)</li>
+                                        <li><code>2</code> - Good default for Linux/Mac (balances speed and RAM)</li>
+                                        <li><code>4</code> - If you have lots of RAM (32GB+)</li>
+                                        <li><code>1</code> - If running out of RAM</li>
+                                    </ul>
+
+                                    <p><strong>When to increase:</strong></p>
+                                    <ul>
+                                        <li>GPU utilization is inconsistent (drops between batches)</li>
+                                        <li>You have RAM to spare</li>
+                                        <li>Data loading is still a bottleneck despite workers</li>
+                                    </ul>
+
+                                    <p><strong>When to decrease:</strong></p>
+                                    <ul>
+                                        <li>Running out of RAM (system memory, not VRAM)</li>
+                                        <li>Getting "out of memory" errors during data loading</li>
+                                        <li>Training on a system with <16GB RAM</li>
+                                    </ul>
+
+                                    <p><strong>⚠️ Important:</strong> This only matters when
+                                        <code>num_workers > 0</code>. If workers = 0, prefetch factor is ignored.</p>
+
+                                    <p><strong>Platform notes:</strong></p>
+                                    <ul>
+                                        <li><strong>Windows:</strong> Usually 0 (since num_workers = 0)</li>
+                                        <li><strong>Linux/Mac:</strong> Usually 2 (with 4 workers)</li>
+                                    </ul>
+
+                                    <p><strong>Impact:</strong></p>
+                                    <span class="impact-badge impact-vram">GPU VRAM: No impact</span>
+                                    <span class="impact-badge impact-neutral">CPU RAM: Higher = more RAM per
+                                        worker</span>
+                                    <span class="impact-badge impact-speed">Speed: Smoother training flow, fewer GPU
+                                        stalls</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="pin_memory" id="pin_mem" checked>
+                            <label for="pin_mem">
+                                Pin Memory (faster GPU transfer, uses more RAM)
+                                <span class="help-icon" onclick="toggleHelp('help-pin-memory')">?</span>
+                            </label>
+                        </div>
+                        <div id="help-pin-memory" class="detailed-help">
+                            <h4>What is Pin Memory?</h4>
+                            <p><strong>Simple explanation:</strong> "Pinning" memory locks loaded data in a special area
+                                of RAM that can transfer to GPU faster. It's like keeping ingredients on the counter
+                                instead of in the pantry.</p>
+
+                            <p><strong>Technical explanation:</strong></p>
+                            <ul>
+                                <li><strong>Unpinned (normal) memory:</strong> OS can move data around. GPU transfer
+                                    needs an extra copy step. Slower but flexible.</li>
+                                <li><strong>Pinned memory:</strong> Data is locked in place. GPU can grab it directly
+                                    via DMA (Direct Memory Access). Faster but uses more RAM.</li>
+                            </ul>
+
+                            <p><strong>The trade-off:</strong></p>
+                            <ul>
+                                <li><strong>Speed benefit:</strong> 10-30% faster data transfer from RAM → GPU</li>
+                                <li><strong>RAM cost:</strong> Pinned memory can't be swapped to disk, so it "uses" more
+                                    RAM</li>
+                            </ul>
+
+                            <p><strong>Should you enable it?</strong></p>
+                            <ul>
+                                <li><strong>YES (default):</strong> If you have 16GB+ system RAM</li>
+                                <li><strong>YES:</strong> If using CUDA (NVIDIA GPUs)</li>
+                                <li><strong>MAYBE NO:</strong> If you have <16GB RAM and seeing memory pressure</li>
+                                <li><strong>NO:</strong> If getting RAM-related crashes</li>
+                            </ul>
+
+                            <p><strong>When to disable:</strong></p>
+                            <ul>
+                                <li>Training on a system with very limited RAM (<8GB)< /li>
+                                <li>Running multiple programs while training</li>
+                                <li>Getting "out of memory" errors (RAM, not VRAM)</li>
+                                <li>System becomes unresponsive during training</li>
+                            </ul>
+
+                            <p><strong>Platform compatibility:</strong></p>
+                            <ul>
+                                <li><strong>CUDA (NVIDIA):</strong> Works great, recommended</li>
+                                <li><strong>MPS (Apple Silicon):</strong> Less benefit but still works</li>
+                                <li><strong>CPU:</strong> No benefit (disabled automatically)</li>
+                            </ul>
+
+                            <p><strong>Impact:</strong></p>
+                            <span class="impact-badge impact-vram">GPU VRAM: No impact</span>
+                            <span class="impact-badge impact-neutral">CPU RAM: Uses more (data can't be swapped)</span>
+                            <span class="impact-badge impact-speed">Speed: 10-30% faster RAM→GPU transfer</span>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="persistent_workers" id="persist" checked>
+                            <label for="persist">
+                                Persistent Workers (keep workers alive between epochs)
+                                <span class="help-icon" onclick="toggleHelp('help-persistent')">?</span>
+                            </label>
+                        </div>
+                        <div id="help-persistent" class="detailed-help">
+                            <h4>What are Persistent Workers?</h4>
+                            <p><strong>Simple explanation:</strong> Keep the data loading workers alive between epochs
+                                instead of killing and restarting them every epoch.</p>
+
+                            <p><strong>Think of it like:</strong> A restaurant with shift workers:</p>
+                            <ul>
+                                <li><strong>Non-persistent:</strong> Fire all prep cooks at end of each lunch service,
+                                    hire new ones for dinner. Lots of setup time.</li>
+                                <li><strong>Persistent:</strong> Keep the same prep cooks all day. They know the kitchen
+                                    and work efficiently.</li>
+                            </ul>
+
+                            <p><strong>How it works:</strong></p>
+                            <ul>
+                                <li><strong>Persistent OFF:</strong> At the end of each epoch:
+                                    <ul>
+                                        <li>Kill all worker processes</li>
+                                        <li>Free their memory</li>
+                                        <li>At start of next epoch: spawn new workers</li>
+                                        <li>Workers reload dataset metadata</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Persistent ON:</strong> Workers stay alive between epochs:
+                                    <ul>
+                                        <li>No respawning overhead</li>
+                                        <li>Dataset stays loaded in worker memory</li>
+                                        <li>Faster transition between epochs</li>
+                                    </ul>
+                                </li>
+                            </ul>
+
+                            <p><strong>Benefits of enabling:</strong></p>
+                            <ul>
+                                <li>⚡ Faster epoch transitions (no worker spawn time)</li>
+                                <li>⚡ No dataset reloading between epochs</li>
+                                <li>⚡ More efficient when training many epochs</li>
+                            </ul>
+
+                            <p><strong>Drawbacks of enabling:</strong></p>
+                            <ul>
+                                <li>💾 Workers keep RAM allocated between epochs</li>
+                                <li>🐛 If workers have memory leaks, they accumulate</li>
+                                <li>🐛 Harder to recover from worker crashes</li>
+                            </ul>
+
+                            <p><strong>Should you enable it?</strong></p>
+                            <ul>
+                                <li><strong>YES (default on Linux):</strong> If training many epochs (50+)</li>
+                                <li><strong>YES:</strong> If you have stable RAM usage (no leaks)</li>
+                                <li><strong>NO (default on Windows):</strong> Windows multiprocessing issues</li>
+                                <li><strong>NO:</strong> If RAM usage grows over time (memory leak)</li>
+                                <li><strong>NO:</strong> If num_workers = 0 (nothing to persist)</li>
+                            </ul>
+
+                            <p><strong>When to disable:</strong></p>
+                            <ul>
+                                <li>RAM usage steadily increases during training (leak)</li>
+                                <li>Workers crash or hang between epochs</li>
+                                <li>Training on Windows (often problematic)</li>
+                                <li>You're doing quick experiments (few epochs)</li>
+                            </ul>
+
+                            <p><strong>Platform defaults:</strong></p>
+                            <ul>
+                                <li><strong>Linux:</strong> ON by default (works reliably)</li>
+                                <li><strong>Windows:</strong> OFF by default (multiprocessing issues)</li>
+                                <li><strong>Mac:</strong> ON by default</li>
+                            </ul>
+
+                            <p><strong>⚠️ Note:</strong> This setting only matters when <code>num_workers > 0</code>.
+                                With 0 workers, there's nothing to keep persistent.</p>
+
+                            <p><strong>Impact:</strong></p>
+                            <span class="impact-badge impact-vram">GPU VRAM: No impact</span>
+                            <span class="impact-badge impact-neutral">CPU RAM: Workers stay in memory (but not loading
+                                more)</span>
+                            <span class="impact-badge impact-speed">Speed: Faster epoch transitions, no spawn
+                                overhead</span>
+                        </div>
+                    </div>
+
+                    <!-- Checkpointing & Logging -->
+                    <div class="section" id="checkpointSection">
+                        <h2>Checkpointing & Logging</h2>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Save Every N Epochs</label>
+                                <input type="number" name="save_every" value="10" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label>Log Every N Steps</label>
+                                <input type="number" name="log_every" value="10" min="1">
+                                <span class="help-text">TensorBoard basic metrics (loss, LR)</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Log Heavy Every N Steps</label>
+                                <input type="number" name="log_heavy_every" value="50" min="1">
+                                <span class="help-text">Per-layer gradient norms (expensive)</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>TensorBoard Directory</label>
+                            <input type="text" name="log_dir" placeholder="Default: {output-dir}/runs">
+                            <span class="help-text">Custom path for TensorBoard logs</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Resume from Checkpoint (optional)</label>
+                            <input type="text" name="resume_from" placeholder="./output/my_lora/checkpoint-epoch-50">
+                            <span class="help-text">Path to checkpoint-epoch-N directory</span>
+                        </div>
+                    </div>
+                    </div><!-- End Training Sections -->
+
+                    <!-- Preprocessing Sections (hidden by default) -->
+                    <div id="preprocessingSections" style="display: none;">
+                    <!-- Preprocessing Options -->
+                    <div class="section">
+                        <h2>Preprocessing Configuration</h2>
+                        <div class="alert alert-info">
+                            <strong>ℹ️ About Preprocessing:</strong> Converts raw audio files (MP3, WAV, FLAC, etc.) into .pt tensor files that can be used for training.
+                            Run this BEFORE training, or queue it as a separate job.
+                        </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>
+                                        Audio Directory
+                                        <span class="help-icon" onclick="toggleHelp('help-audio-dir')">?</span>
+                                    </label>
+                                    <input type="text" name="audio_dir"
+                                        placeholder="Windows: E:\my_music | Linux: /home/user/audio">
+                                    <span class="help-text">Source directory with audio files</span>
+                                    <div id="help-audio-dir" class="detailed-help">
+                                        <h4>What is Audio Directory?</h4>
+                                        <p><strong>Simple explanation:</strong> The folder containing your raw audio
+                                            files (MP3, WAV, FLAC, etc.) that will be converted to training tensors.</p>
+
+                                        <p><strong>Path examples:</strong></p>
+                                        <ul>
+                                            <li><strong>Windows:</strong> <code>E:\my_music</code>,
+                                                <code>C:\Users\YourName\Music\training</code></li>
+                                            <li><strong>Linux/Mac:</strong> <code>/home/user/audio</code>,
+                                                <code>./my_audio</code></li>
+                                        </ul>
+
+                                        <p><strong>Supported formats:</strong> MP3, WAV, FLAC, OGG, M4A, and most common
+                                            audio formats</p>
+
+                                        <p><strong>The files will be:</strong></p>
+                                        <ul>
+                                            <li>Loaded and decoded to audio waveforms</li>
+                                            <li>Converted to latent tensors via VAE</li>
+                                            <li>Saved as .pt files in your tensor output directory</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>
+                                        Dataset JSON (optional)
+                                        <span class="help-icon" onclick="toggleHelp('help-dataset-json')">?</span>
+                                    </label>
+                                    <input type="text" name="dataset_json"
+                                        placeholder="Windows: E:\my_music\dataset.json | Linux: ./dataset.json">
+                                    <span class="help-text">Metadata file with lyrics/genre/BPM</span>
+                                    <div id="help-dataset-json" class="detailed-help">
+                                        <h4>What is Dataset JSON?</h4>
+                                        <p><strong>Simple explanation:</strong> An optional metadata file that provides
+                                            extra information about each audio file (lyrics, genre, BPM, etc.).</p>
+
+                                        <p><strong>When to use:</strong></p>
+                                        <ul>
+                                            <li><strong>With lyrics:</strong> Training with text conditioning (vocals)
+                                            </li>
+                                            <li><strong>With metadata:</strong> Genre, BPM, mood tags</li>
+                                            <li><strong>Without (empty):</strong> Instrumental music with no text
+                                                prompts</li>
+                                        </ul>
+
+                                        <p><strong>JSON format example:</strong></p>
+                                        <pre><code>{
+  "samples": [
+    {
+      "audio": "song1.wav",
+      "lyrics": "Verse 1 lyrics here...",
+      "genre": "rock",
+      "bpm": 120
+    }
+  ]
+}</code></pre>
+
+                                        <p><strong>Leave empty if:</strong> You're training on instrumental music
+                                            without text metadata</p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>
+                                        Tensor Output
+                                        <span class="help-icon" onclick="toggleHelp('help-tensor-output')">?</span>
+                                    </label>
+                                    <input type="text" name="tensor_output"
+                                        placeholder="Windows: E:\tensors | Linux: ./my_tensors">
+                                    <span class="help-text">Where to save .pt files</span>
+                                    <div id="help-tensor-output" class="detailed-help">
+                                        <h4>What is Tensor Output?</h4>
+                                        <p><strong>Simple explanation:</strong> Where the preprocessed .pt tensor files
+                                            will be saved. This becomes your "Dataset Directory" for training.</p>
+
+                                        <p><strong>Path examples:</strong></p>
+                                        <ul>
+                                            <li><strong>Windows:</strong>
+                                                <code>E:\ace-step-dataset\FMNICKS\tensors</code></li>
+                                            <li><strong>Linux/Mac:</strong> <code>/home/user/tensors</code>,
+                                                <code>./my_tensors</code></li>
+                                        </ul>
+
+                                        <p><strong>What gets created:</strong></p>
+                                        <ul>
+                                            <li><code>manifest.json</code> - Index of all processed files</li>
+                                            <li><code>track_001.pt</code>, <code>track_002.pt</code>, etc. - Tensor
+                                                files</li>
+                                            <li>One .pt file per audio file in your audio directory</li>
+                                        </ul>
+
+                                        <p><strong>After preprocessing:</strong> Use this same path as your "Dataset
+                                            Directory" when training!</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Max Duration (seconds)</label>
+                                    <input type="number" name="max_duration" value="0" min="0">
+                                    <span class="help-text">0 = auto-detect from dataset</span>
+                                </div>
+                                <div class="form-group">
+                                    <label>Normalization</label>
+                                    <select name="normalize">
+                                        <option value="none" selected>None</option>
+                                        <option value="peak">Peak (-1.0 dBFS)</option>
+                                        <option value="lufs">LUFS (-14 LUFS, requires pyloudnorm)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </div><!-- End Preprocessing Sections -->
+
+                    <!-- Global Flags (shown for both task types) -->
+                    <div class="section">
+                        <h2>Global Options</h2>
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="use_uv" id="use_uv" checked>
+                            <label for="use_uv">
+                                Use UV package manager (recommended)
+                                <span class="help-icon" onclick="toggleHelp('help-uv')">?</span>
+                            </label>
+                        </div>
+                        <div id="help-uv" class="detailed-help">
+                            <h4>What is UV?</h4>
+                            <p><strong>Simple explanation:</strong> UV is a fast Python package manager that Side-Step
+                                uses. It's like pip but much faster (10-100x).</p>
+
+                            <p><strong>Why it's checked by default:</strong></p>
+                            <ul>
+                                <li>Side-Step documentation recommends using UV</li>
+                                <li>Ensures packages are in sync with project requirements</li>
+                                <li>Much faster than standard pip</li>
+                            </ul>
+
+                            <p><strong>Command difference:</strong></p>
+                            <ul>
+                                <li><strong>With UV (checked):</strong> <code>uv run python train.py ...</code></li>
+                                <li><strong>Without UV:</strong> <code>python train.py ...</code></li>
+                            </ul>
+
+                            <p><strong>When to disable:</strong></p>
+                            <ul>
+                                <li>You don't have UV installed</li>
+                                <li>You're using standard pip/virtualenv</li>
+                                <li>You know you don't need it</li>
+                            </ul>
+
+                            <p><strong>To install UV:</strong></p>
+                            <pre><code>pip install uv</code></pre>
+
+                            <p><strong>Impact:</strong></p>
+                            <span class="impact-badge impact-neutral">Just changes the command prefix</span>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="plain" id="plain">
+                            <label for="plain">Plain output (disable Rich formatting)</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="yes" id="yes">
+                            <label for="yes">Skip confirmation prompt (auto-start)</label>
+                        </div>
+                    </div>
+
+                    <!-- Add to Queue Button -->
+                    <div class="button-group">
+                        <button type="button" class="btn-success" onclick="addToQueue()">
+                            <span>➕</span> Add to Queue
+                        </button>
+                        <button type="reset" class="btn-secondary">
+                            🔄 Reset Form
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Queue Tab -->
+            <div id="queueTab" class="tab-content">
+                <div class="queue-options">
+                    <h4>Queue Execution Options</h4>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="stopOnFailure" checked>
+                        <label for="stopOnFailure">Stop queue if a job fails (recommended)</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="addTimestamps" checked>
+                        <label for="addTimestamps">Add timestamps to logs</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="sendNotification">
+                        <label for="sendNotification">Play sound when all jobs complete (Windows only)</label>
+                    </div>
+                </div>
+
+                <div class="job-list" id="jobList">
+                    <div class="empty-queue">
+                        📭 No jobs in queue. Configure a job and click "Add to Queue"
+                    </div>
+                </div>
+
+                <div class="button-group" id="queueActions" style="display: none;">
+                    <button class="btn-primary" onclick="generateQueueScript()">
+                        <span>⚡</span> Generate Queue Script
+                    </button>
+                    <button class="btn-danger" onclick="clearQueue()">
+                        <span>🗑️</span> Clear All Jobs
+                    </button>
+                </div>
+            </div>
+
+            <!-- Output Section -->
+            <div class="output-section" id="outputSection">
+                <div class="output-header">
+                    <h3>Generated Queue Script</h3>
+                    <button class="copy-btn" onclick="copyCommand()">📋 Copy to Clipboard</button>
+                </div>
+                <div class="command-output" id="commandOutput"></div>
+
+                <div class="button-group" style="margin-top: 20px;">
+                    <button class="btn-primary" onclick="downloadBat()">
+                        💾 Download .bat (Windows)
+                    </button>
+                    <button class="btn-secondary" onclick="downloadTxt()">
+                        📄 Download as .txt (Bypasses Windows Security)
+                    </button>
+                    <button class="btn-primary" onclick="downloadSh()">
+                        💾 Download .sh (Linux/Mac)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global job queue
+        let jobQueue = [];
+
+        // Handle mode selection styling and conditional sections
+        document.querySelectorAll('.mode-option').forEach(option => {
+            option.addEventListener('click', function () {
+                document.querySelectorAll('.mode-option').forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+                this.querySelector('input[type="radio"]').checked = true;
+                updateVisibleSections();
+            });
+        });
+
+        // Handle adapter type selection
+        document.querySelectorAll('.adapter-option').forEach(option => {
+            option.addEventListener('click', function () {
+                document.querySelectorAll('.adapter-option').forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+                this.querySelector('input[type="radio"]').checked = true;
+                updateAdapterSections();
+            });
+        });
+
+        function switchToTraining() {
+            document.querySelector('input[name="task_type"][value="train"]').checked = true;
+            updateTaskType();
+        }
+        
+        function switchToPreprocessing() {
+            document.querySelector('input[name="task_type"][value="preprocess"]').checked = true;
+            updateTaskType();
+        }
+
+        function updateTaskType() {
+            const taskType = document.querySelector('input[name="task_type"]:checked').value;
+            const trainingSections = document.getElementById('trainingSections');
+            const preprocessingSections = document.getElementById('preprocessingSections');
+            
+            // Update visual selection on labels
+            document.querySelectorAll('.mode-selector .mode-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            
+            if (taskType === 'train') {
+                document.querySelector('.mode-option:has(input[value="train"])').classList.add('selected');
+                trainingSections.style.display = 'block';
+                preprocessingSections.style.display = 'none';
+            } else {
+                document.querySelector('.mode-option:has(input[value="preprocess"])').classList.add('selected');
+                trainingSections.style.display = 'none';
+                preprocessingSections.style.display = 'block';
+            }
+        }
+
+        function updateVisibleSections() {
+            // This function is kept for backward compatibility but no longer needed
+            // Training sections are always visible when task_type=train
+            updateAdapterSections();
+        }
+
+        function updateAdapterSections() {
+            const adapterType = document.querySelector('input[name="adapter_type"]:checked').value;
+            document.getElementById('loraSection').style.display = (adapterType === 'lora' || adapterType === 'dora') ? 'block' : 'none';
+            document.getElementById('lokrSection').style.display = adapterType === 'lokr' ? 'block' : 'none';
+            document.getElementById('lohaSection').style.display = adapterType === 'loha' ? 'block' : 'none';
+            document.getElementById('oftSection').style.display = adapterType === 'oft' ? 'block' : 'none';
+        }
+
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+
+        function buildCommand(formData) {
+            let command = '';
+
+            // Add uv run prefix if enabled
+            if (formData.get('use_uv') === 'on') {
+                command = 'uv run sidestep';
+            } else {
+                command = 'sidestep';
+            }
+
+            // Add global flags before subcommand
+            if (formData.get('plain') === 'on') command += ' --plain';
+            if (formData.get('yes') === 'on') command += ' --yes';
+
+            // Check task type
+            const taskType = formData.get('task_type') || 'train';
+            
+            if (taskType === 'preprocess') {
+                // Generate preprocessing command
+                command += ' preprocess';
+                
+                // Required paths for preprocessing
+                command += ' --checkpoint-dir "' + formData.get('checkpoint_dir') + '"';
+                
+                const audioDir = formData.get('audio_dir');
+                if (audioDir) {
+                    command += ' --audio-dir "' + audioDir + '"';
+                }
+                
+                const tensorOutput = formData.get('tensor_output');
+                if (tensorOutput) {
+                    command += ' --output "' + tensorOutput + '"';
+                }
+                
+                // Optional preprocessing params
+                const datasetJson = formData.get('dataset_json');
+                if (datasetJson) {
+                    command += ' --dataset-json "' + datasetJson + '"';
+                }
+                
+                const maxDuration = formData.get('max_duration');
+                if (maxDuration && maxDuration !== '0') {
+                    command += ' --max-duration ' + maxDuration;
+                }
+                
+                const normalize = formData.get('normalize');
+                if (normalize && normalize !== 'none') {
+                    command += ' --normalize ' + normalize;
+                }
+                
+                const modelVariant = formData.get('model_variant');
+                if (modelVariant) {
+                    command += ' --model ' + modelVariant;
+                }
+                
+                if (formData.get('device') !== 'auto') {
+                    command += ' --device ' + formData.get('device');
+                }
+                if (formData.get('precision') !== 'auto') {
+                    command += ' --precision ' + formData.get('precision');
+                }
+                
+                return command;
+            }
+            
+            // Generate training command
+            command += ' train';
+
+            // Required paths
+            command += ' --checkpoint-dir "' + formData.get('checkpoint_dir') + '"';
+            command += ' --dataset-dir "' + formData.get('dataset_dir') + '"';
+            command += ' --output-dir "' + formData.get('output_dir') + '"';
+
+            // Model settings
+            const modelVariant = formData.get('model_variant');
+            if (modelVariant) {
+                command += ' --model ' + modelVariant;
+            }
+
+            // Note: --base-model removed in Beta 1 (auto-detected)
+            
+            // Run name (optional)
+            const runName = formData.get('run_name');
+            if (runName) {
+                command += ' --run-name "' + runName + '"';
+            }
+
+            if (formData.get('device') !== 'auto') {
+                command += ' --device ' + formData.get('device');
+            }
+            if (formData.get('precision') !== 'auto') {
+                command += ' --precision ' + formData.get('precision');
+            }
+
+            // Adapter type
+            const adapterType = formData.get('adapter_type');
+                if (adapterType === 'lokr') {
+                    command += ' --adapter-type lokr';
+
+                    // LoKR params
+                    if (formData.get('lokr_linear_dim') !== '64') {
+                        command += ' --lokr-linear-dim ' + formData.get('lokr_linear_dim');
+                    }
+                    if (formData.get('lokr_linear_alpha') !== '128') {
+                        command += ' --lokr-linear-alpha ' + formData.get('lokr_linear_alpha');
+                    }
+                    if (formData.get('lokr_factor') !== '-1') {
+                        command += ' --lokr-factor ' + formData.get('lokr_factor');
+                    }
+                    if (formData.get('lokr_decompose_both') === 'on') {
+                        command += ' --lokr-decompose-both';
+                    }
+                    if (formData.get('lokr_use_tucker') === 'on') {
+                        command += ' --lokr-use-tucker';
+                    }
+                    if (formData.get('lokr_use_scalar') === 'on') {
+                        command += ' --lokr-use-scalar';
+                    }
+                    if (formData.get('lokr_weight_decompose') === 'on') {
+                        command += ' --lokr-weight-decompose';
+                    }
+                } else if (adapterType === 'loha') {
+                    command += ' --adapter-type loha';
+
+                    // LoHA params
+                    if (formData.get('loha_linear_dim') !== '16') {
+                        command += ' --loha-linear-dim ' + formData.get('loha_linear_dim');
+                    }
+                    if (formData.get('loha_linear_alpha') !== '16') {
+                        command += ' --loha-linear-alpha ' + formData.get('loha_linear_alpha');
+                    }
+                    if (formData.get('loha_factor') !== '-1') {
+                        command += ' --loha-factor ' + formData.get('loha_factor');
+                    }
+                    if (formData.get('loha_use_tucker') === 'on') {
+                        command += ' --loha-use-tucker';
+                    }
+                    if (formData.get('loha_use_scalar') === 'on') {
+                        command += ' --loha-use-scalar';
+                    }
+                } else if (adapterType === 'oft') {
+                    command += ' --adapter-type oft';
+
+                    // OFT params
+                    if (formData.get('oft_block_size') !== '8') {
+                        command += ' --oft-block-size ' + formData.get('oft_block_size');
+                    }
+                    if (formData.get('oft_coft') === 'on') {
+                        command += ' --oft-coft';
+                    }
+                    if (formData.get('oft_eps') !== '1e-3' && formData.get('oft_eps') !== '0.001') {
+                        command += ' --oft-eps ' + formData.get('oft_eps');
+                    }
+                } else {
+                    // LoRA or DoRA params
+                    if (adapterType === 'dora') {
+                        command += ' --adapter-type dora';
+                    }
+                    if (formData.get('rank') !== '64') {
+                        command += ' --rank ' + formData.get('rank');
+                    }
+                    if (formData.get('alpha') !== '128') {
+                        command += ' --alpha ' + formData.get('alpha');
+                    }
+                    if (formData.get('dropout') !== '0.1') {
+                        command += ' --dropout ' + formData.get('dropout');
+                    }
+                    if (formData.get('attention_type') !== 'both') {
+                        command += ' --attention-type ' + formData.get('attention_type');
+                    }
+                    if (formData.get('target_modules') !== 'q_proj k_proj v_proj o_proj') {
+                        command += ' --target-modules ' + formData.get('target_modules');
+                    }
+                    if (formData.get('bias') !== 'none') {
+                        command += ' --bias ' + formData.get('bias');
+                    }
+                    if (formData.get('self_target_modules')) {
+                        command += ' --self-target-modules ' + formData.get('self_target_modules');
+                    }
+                    if (formData.get('cross_target_modules')) {
+                        command += ' --cross-target-modules ' + formData.get('cross_target_modules');
+                    }
+                }
+
+                // Training hyperparameters
+                if (formData.get('learning_rate') !== '0.0001') {
+                    command += ' --lr ' + formData.get('learning_rate');
+                }
+                if (formData.get('batch_size') !== '1') {
+                    command += ' --batch-size ' + formData.get('batch_size');
+                }
+                if (formData.get('gradient_accumulation') !== '4') {
+                    command += ' --gradient-accumulation ' + formData.get('gradient_accumulation');
+                }
+                if (formData.get('epochs') !== '100') {
+                    command += ' --epochs ' + formData.get('epochs');
+                }
+                if (formData.get('warmup_steps') !== '100') {
+                    command += ' --warmup-steps ' + formData.get('warmup_steps');
+                }
+                if (formData.get('seed') !== '42') {
+                    command += ' --seed ' + formData.get('seed');
+                }
+                if (formData.get('weight_decay') !== '0.01') {
+                    command += ' --weight-decay ' + formData.get('weight_decay');
+                }
+                if (formData.get('max_grad_norm') !== '1.0') {
+                    command += ' --max-grad-norm ' + formData.get('max_grad_norm');
+                }
+
+                const chunkDuration = formData.get('chunk_duration');
+                if (chunkDuration && chunkDuration !== '0') {
+                    command += ' --chunk-duration ' + chunkDuration;
+                }
+
+                const shift = formData.get('shift');
+                if (shift && shift !== '3.0') {
+                    command += ' --shift ' + shift;
+                }
+
+                const numSteps = formData.get('num_inference_steps');
+                if (numSteps && numSteps !== '8') {
+                    command += ' --num-inference-steps ' + numSteps;
+                }
+
+                // CFG & Loss
+                if (formData.get('cfg_ratio') !== '0.15') {
+                    command += ' --cfg-ratio ' + formData.get('cfg_ratio');
+                }
+                if (formData.get('loss_weighting') !== 'none') {
+                    command += ' --loss-weighting ' + formData.get('loss_weighting');
+                }
+                if (formData.get('snr_gamma') !== '5.0') {
+                    command += ' --snr-gamma ' + formData.get('snr_gamma');
+                }
+
+                // Optimizer
+                // Optimizer (Beta 1 default is adamw8bit)
+                if (formData.get('optimizer_type') !== 'adamw8bit') {
+                    command += ' --optimizer-type ' + formData.get('optimizer_type');
+                }
+                if (formData.get('scheduler_type') !== 'cosine') {
+                    command += ' --scheduler-type ' + formData.get('scheduler_type');
+                }
+
+                // Memory optimization
+                if (formData.get('gradient_checkpointing') !== 'on') {
+                    command += ' --no-gradient-checkpointing';
+                }
+                if (formData.get('offload_encoder') === 'on') {
+                    command += ' --offload-encoder';
+                }
+
+                // Data loading
+                if (formData.get('num_workers') !== '4') {
+                    command += ' --num-workers ' + formData.get('num_workers');
+                }
+                if (formData.get('prefetch_factor') !== '2') {
+                    command += ' --prefetch-factor ' + formData.get('prefetch_factor');
+                }
+                if (formData.get('pin_memory') !== 'on') {
+                    command += ' --no-pin-memory';
+                }
+                if (formData.get('persistent_workers') !== 'on') {
+                    command += ' --no-persistent-workers';
+                }
+
+                // Checkpointing
+                if (formData.get('save_every') !== '10') {
+                    command += ' --save-every ' + formData.get('save_every');
+                }
+                if (formData.get('log_every') !== '10') {
+                    command += ' --log-every ' + formData.get('log_every');
+                }
+                if (formData.get('log_heavy_every') !== '50') {
+                    command += ' --log-heavy-every ' + formData.get('log_heavy_every');
+                }
+                if (formData.get('log_dir')) {
+                    command += ' --log-dir "' + formData.get('log_dir') + '"';
+                }
+                if (formData.get('resume_from')) {
+                    command += ' --resume-from "' + formData.get('resume_from') + '"';
+                }
+
+            return command;
+        }
+
+        function addToQueue() {
+            const form = document.getElementById('configForm');
+            const formData = new FormData(form);
+
+            // Build command
+            const command = buildCommand(formData);
+
+            // Create job object
+            const job = {
+                id: Date.now(),
+                name: formData.get('job_name') || `Job ${jobQueue.length + 1}`,
+                taskType: formData.get('task_type') || 'train',
+                command: command,
+                outputDir: formData.get('output_dir'),
+                epochs: formData.get('epochs')
+            };
+
+            // Add to queue
+            jobQueue.push(job);
+
+            // Update UI
+            updateQueueUI();
+            updateQueueCount();
+
+            // Switch to queue tab
+            switchTab('queue');
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab')[1].classList.add('active');
+
+            // Show success message
+            alert('✅ Job added to queue: ' + job.name);
+        }
+
+        function updateQueueUI() {
+            const jobListEl = document.getElementById('jobList');
+            const queueActionsEl = document.getElementById('queueActions');
+
+            if (jobQueue.length === 0) {
+                jobListEl.innerHTML = '<div class="empty-queue">📭 No jobs in queue. Configure a job and click "Add to Queue"</div>';
+                queueActionsEl.style.display = 'none';
+            } else {
+                jobListEl.innerHTML = jobQueue.map((job, index) => `
+                    <div class="job-item">
+                        <div class="job-item-header">
+                            <div>
+                                <span class="job-badge job-badge-${job.taskType}">${job.taskType.toUpperCase()}</span>
+                                <span class="job-item-title">${job.name}</span>
+                            </div>
+                            <div class="job-item-actions">
+                                <button class="btn-secondary btn-small" onclick="moveJobUp(${index})" ${index === 0 ? 'disabled' : ''}>↑</button>
+                                <button class="btn-secondary btn-small" onclick="moveJobDown(${index})" ${index === jobQueue.length - 1 ? 'disabled' : ''}>↓</button>
+                                <button class="btn-danger btn-small" onclick="removeJob(${index})">✕</button>
+                            </div>
+                        </div>
+                        <div class="job-item-details">Output: ${job.outputDir || 'N/A'} | Epochs: ${job.epochs || 'N/A'}
+${job.command}</div>
+                    </div>
+                `).join('');
+                queueActionsEl.style.display = 'flex';
+            }
+        }
+
+        function updateQueueCount() {
+            document.getElementById('queueCount').textContent = jobQueue.length;
+        }
+
+        function removeJob(index) {
+            if (confirm('Remove this job from the queue?')) {
+                jobQueue.splice(index, 1);
+                updateQueueUI();
+                updateQueueCount();
+            }
+        }
+
+        function moveJobUp(index) {
+            if (index > 0) {
+                [jobQueue[index], jobQueue[index - 1]] = [jobQueue[index - 1], jobQueue[index]];
+                updateQueueUI();
+            }
+        }
+
+        function moveJobDown(index) {
+            if (index < jobQueue.length - 1) {
+                [jobQueue[index], jobQueue[index + 1]] = [jobQueue[index + 1], jobQueue[index]];
+                updateQueueUI();
+            }
+        }
+
+        function clearQueue() {
+            if (confirm('Clear all jobs from the queue?')) {
+                jobQueue = [];
+                updateQueueUI();
+                updateQueueCount();
+            }
+        }
+
+        function generateQueueScript() {
+            if (jobQueue.length === 0) {
+                alert('No jobs in queue!');
+                return;
+            }
+
+            const stopOnFailure = document.getElementById('stopOnFailure').checked;
+            const addTimestamps = document.getElementById('addTimestamps').checked;
+            const sendNotification = document.getElementById('sendNotification').checked;
+
+            // Build script content
+            let scriptContent = `@echo off
+REM ============================================
+REM Side-Step Training Queue
+REM Generated: ${new Date().toLocaleString()}
+REM Total Jobs: ${jobQueue.length}
+REM ============================================
+echo.
+echo Starting Side-Step Training Queue...
+echo Total jobs: ${jobQueue.length}
+echo.
+
+`;
+
+            jobQueue.forEach((job, index) => {
+                const jobNum = index + 1;
+                scriptContent += `REM ============================================\n`;
+                scriptContent += `REM Job ${jobNum}/${jobQueue.length}: ${job.name}\n`;
+                scriptContent += `REM ============================================\n`;
+
+                if (addTimestamps) {
+                    scriptContent += `echo [%date% %time%] Starting Job ${jobNum}: ${job.name}\n`;
+                } else {
+                    scriptContent += `echo Starting Job ${jobNum}: ${job.name}\n`;
+                }
+
+                scriptContent += `echo.\n`;
+                scriptContent += `call ${job.command}\n`;
+
+                if (stopOnFailure) {
+                    scriptContent += `if errorlevel 1 (\n`;
+                    scriptContent += `    echo.\n`;
+                    scriptContent += `    echo ERROR: Job ${jobNum} failed! Stopping queue.\n`;
+                    scriptContent += `    pause\n`;
+                    scriptContent += `    exit /b 1\n`;
+                    scriptContent += `)\n`;
+                }
+
+                scriptContent += `echo.\n`;
+                if (addTimestamps) {
+                    scriptContent += `echo [%date% %time%] Completed Job ${jobNum}: ${job.name}\n`;
+                } else {
+                    scriptContent += `echo Completed Job ${jobNum}: ${job.name}\n`;
+                }
+                scriptContent += `echo.\n\n`;
+            });
+
+            scriptContent += `echo ============================================\n`;
+            scriptContent += `echo All jobs completed successfully!\n`;
+            scriptContent += `echo ============================================\n`;
+
+            if (sendNotification) {
+                scriptContent += `echo \x07\n`; // Bell character for beep
+            }
+
+            scriptContent += `pause\n`;
+
+            // Display output
+            document.getElementById('commandOutput').textContent = scriptContent;
+            document.getElementById('outputSection').classList.add('active');
+            document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function copyCommand() {
+            const commandText = document.getElementById('commandOutput').textContent;
+            navigator.clipboard.writeText(commandText).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            });
+        }
+
+        function downloadBat() {
+            const scriptContent = document.getElementById('commandOutput').textContent;
+            const blob = new Blob([scriptContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sidestep_queue_${Date.now()}.bat`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadTxt() {
+            const scriptContent = document.getElementById('commandOutput').textContent;
+            const blob = new Blob([scriptContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sidestep_queue_${Date.now()}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            // Show rename instruction
+            alert('📄 Downloaded as .txt file!\n\nTo use:\n1. Find the downloaded .txt file\n2. Rename it from .txt to .bat\n3. Double-click to run\n\nNo Windows security blocking! ✅');
+        }
+
+        function downloadSh() {
+            const stopOnFailure = document.getElementById('stopOnFailure').checked;
+            const addTimestamps = document.getElementById('addTimestamps').checked;
+
+            let scriptContent = `#!/bin/bash
+# ============================================
+# Side-Step Training Queue
+# Generated: ${new Date().toLocaleString()}
+# Total Jobs: ${jobQueue.length}
+# ============================================
+
+echo ""
+echo "Starting Side-Step Training Queue..."
+echo "Total jobs: ${jobQueue.length}"
+echo ""
+
+`;
+
+            jobQueue.forEach((job, index) => {
+                const jobNum = index + 1;
+                scriptContent += `# ============================================\n`;
+                scriptContent += `# Job ${jobNum}/${jobQueue.length}: ${job.name}\n`;
+                scriptContent += `# ============================================\n`;
+
+                if (addTimestamps) {
+                    scriptContent += `echo "[$(date)] Starting Job ${jobNum}: ${job.name}"\n`;
+                } else {
+                    scriptContent += `echo "Starting Job ${jobNum}: ${job.name}"\n`;
+                }
+
+                scriptContent += `echo ""\n`;
+                scriptContent += `${job.command}\n`;
+
+                if (stopOnFailure) {
+                    scriptContent += `if [ $? -ne 0 ]; then\n`;
+                    scriptContent += `    echo ""\n`;
+                    scriptContent += `    echo "ERROR: Job ${jobNum} failed! Stopping queue."\n`;
+                    scriptContent += `    exit 1\n`;
+                    scriptContent += `fi\n`;
+                }
+
+                scriptContent += `echo ""\n`;
+                if (addTimestamps) {
+                    scriptContent += `echo "[$(date)] Completed Job ${jobNum}: ${job.name}"\n`;
+                } else {
+                    scriptContent += `echo "Completed Job ${jobNum}: ${job.name}"\n`;
+                }
+                scriptContent += `echo ""\n\n`;
+            });
+
+            scriptContent += `echo "============================================"\n`;
+            scriptContent += `echo "All jobs completed successfully!"\n`;
+            scriptContent += `echo "============================================"\n`;
+
+            const blob = new Blob([scriptContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sidestep_queue_${Date.now()}.sh`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Initialize visible sections on load
+        updateVisibleSections();
+
+        // Toggle detailed help
+        function toggleHelp(helpId) {
+            const helpEl = document.getElementById(helpId);
+            if (helpEl) {
+                helpEl.classList.toggle('active');
+            }
+        }
+    </script>
+</body>
+
+</html>
