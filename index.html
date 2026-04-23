@@ -614,6 +614,7 @@
                     <button class="tab active" onclick="switchTab('configure')">⚙️ Configure Job</button>
                     <button class="tab" onclick="switchTab('queue')">📋 Job Queue (<span
                             id="queueCount">0</span>)</button>
+                    <button class="tab" onclick="switchTab('import')">📂 Import Config JSON</button>
                 </div>
             </div>
 
@@ -648,8 +649,21 @@
                             </div>
                             <div class="form-group">
                                 <label>Model Variant</label>
-                                <input type="text" name="model_variant" value="acestep-v15-base" placeholder="turbo, base, sft, or custom folder name">
-                                <span class="help-text">Official: turbo/base/sft. For fine-tunes: exact folder name</span>
+                                <select name="model_variant" id="modelVariantSelect" onchange="updateCustomModel()">
+                                    <option value="base">base (ACE-Step 1.5 Base)</option>
+                                    <option value="sft">sft (ACE-Step 1.5 SFT)</option>
+                                    <option value="turbo">turbo (ACE-Step 1.5 Turbo)</option>
+                                    <option value="xl-base" selected>xl-base (ACE-Step 1.5 XL Base)</option>
+                                    <option value="xl-sft">xl-sft (ACE-Step 1.5 XL SFT)</option>
+                                    <option value="xl-turbo">xl-turbo (ACE-Step 1.5 XL Turbo)</option>
+                                    <option value="custom">Custom checkpoint folder...</option>
+                                </select>
+                                <span class="help-text">Official ACE-Step models + XL variants</span>
+                            </div>
+                            <div class="form-group" id="customModelGroup" style="display: none;">
+                                <label>Custom Model Folder Name</label>
+                                <input type="text" name="custom_model_name" id="customModelName" placeholder="exact-folder-name">
+                                <span class="help-text">Enter exact checkpoint folder name (for fine-tunes)</span>
                             </div>
                         </div>
                         <div class="form-row">
@@ -882,7 +896,48 @@
 
                     <!-- LoRA Configuration -->
                     <div class="section" id="loraSection">
-                        <h2>LoRA Configuration</h2>
+                        <h2>LoRA / DoRA Configuration</h2>
+                        <div class="alert alert-info" style="margin-bottom: 12px;">
+                            <strong>💡 Quick Reference — Rank &amp; Alpha by Adapter:</strong><br>
+                            <table style="width:100%; border-collapse: collapse; margin-top: 8px; font-size: 0.9em;">
+                                <tr style="background: rgba(0,0,0,0.05);">
+                                    <th style="text-align:left; padding: 4px 8px;">Adapter</th>
+                                    <th style="text-align:left; padding: 4px 8px;">Rank / Dim</th>
+                                    <th style="text-align:left; padding: 4px 8px;">Alpha</th>
+                                    <th style="text-align:left; padding: 4px 8px;">LR</th>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 8px;"><strong>LoRA</strong></td>
+                                    <td style="padding: 4px 8px;">64–128</td>
+                                    <td style="padding: 4px 8px;">2× rank (128–256)</td>
+                                    <td style="padding: 4px 8px;">3e-4</td>
+                                </tr>
+                                <tr style="background: rgba(0,0,0,0.03);">
+                                    <td style="padding: 4px 8px;"><strong>DoRA</strong></td>
+                                    <td style="padding: 4px 8px;">64–128</td>
+                                    <td style="padding: 4px 8px;">2× rank (128–256)</td>
+                                    <td style="padding: 4px 8px;">3e-4</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 8px;"><strong>LoKR</strong></td>
+                                    <td style="padding: 4px 8px;">16–32</td>
+                                    <td style="padding: 4px 8px;">1× dim (16–32)</td>
+                                    <td style="padding: 4px 8px;">5e-4 – 1e-3</td>
+                                </tr>
+                                <tr style="background: rgba(0,0,0,0.03);">
+                                    <td style="padding: 4px 8px;"><strong>LoHA</strong></td>
+                                    <td style="padding: 4px 8px;">16–32</td>
+                                    <td style="padding: 4px 8px;">1× dim (16–32)</td>
+                                    <td style="padding: 4px 8px;">3e-4 – 5e-4</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 8px;"><strong>OFT</strong></td>
+                                    <td style="padding: 4px 8px;">Block size 64</td>
+                                    <td style="padding: 4px 8px;">n/a</td>
+                                    <td style="padding: 4px 8px;">1e-4 – 3e-4</td>
+                                </tr>
+                            </table>
+                        </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>
@@ -890,26 +945,21 @@
                                     <span class="help-icon" onclick="toggleHelp('help-rank')">?</span>
                                 </label>
                                 <input type="number" name="rank" value="64" min="1">
-                                <span class="help-text">16=quick tests, 64=recommended, 128=max quality</span>
+                                <span class="help-text">LoRA/DoRA: 64–128 recommended. See table above for other adapters.</span>
                                 <div id="help-rank" class="detailed-help">
                                     <h4>What is Rank?</h4>
-                                    <p><strong>Simple explanation:</strong> Rank controls how much the AI can learn from
-                                        your data. Higher rank = more learning capacity, but uses more GPU memory.</p>
-                                    <p><strong>Think of it like:</strong> A notebook with more pages. Rank 16 is a small
-                                        notebook, Rank 128 is a thick textbook.</p>
-                                    <p><strong>Valid values:</strong> Any number from 1 to 256, but common choices are:
-                                    </p>
+                                    <p><strong>Simple explanation:</strong> Controls how much the adapter can learn. Higher rank = more capacity, more VRAM. The right value depends heavily on which adapter you're using — don't copy LoRA values into LoKR/LoHA.</p>
+                                    <p><strong>LoRA / DoRA:</strong></p>
                                     <ul>
-                                        <li><code>16</code> - Quick experiments, small datasets (1-5 songs)</li>
-                                        <li><code>32</code> - Small to medium datasets (5-10 songs)</li>
-                                        <li><code>64</code> - Recommended default for most use cases</li>
-                                        <li><code>128</code> - Large datasets (50+ songs), maximum quality</li>
+                                        <li><code>16</code> — Quick experiments, very small datasets (1–5 songs)</li>
+                                        <li><code>64</code> — Recommended default for most cases</li>
+                                        <li><code>128</code> — Large datasets (50+ songs), maximum quality</li>
+                                        <li><code>256</code> — Rarely needed; only with 100+ songs</li>
                                     </ul>
-                                    <p><strong>Impact:</strong></p>
+                                    <p><strong>LoKR / LoHA:</strong> See the LoKR/LoHA configuration sections below — these adapters use much lower values (16–32) due to their more efficient parameterization.</p>
+                                    <p><strong>Can rank be any integer?</strong> Yes — any positive integer works. Powers of 2 (16, 32, 64, 128) are conventional but 48, 96, or 100 would also work.</p>
                                     <span class="impact-badge impact-vram">VRAM: Higher = More</span>
-                                    <span class="impact-badge impact-quality">Quality: Higher = Better (if you have
-                                        enough data)</span>
-                                    <span class="impact-badge impact-speed">Speed: Minimal impact</span>
+                                    <span class="impact-badge impact-quality">Quality: Higher = More capacity (needs matching data)</span>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -918,24 +968,25 @@
                                     <span class="help-icon" onclick="toggleHelp('help-alpha')">?</span>
                                 </label>
                                 <input type="number" name="alpha" value="128" min="1">
-                                <span class="help-text">Usually 2x the rank</span>
+                                <span class="help-text">LoRA/DoRA: 2× rank (rank 64 → alpha 128)</span>
                                 <div id="help-alpha" class="detailed-help">
                                     <h4>What is Alpha?</h4>
-                                    <p><strong>Simple explanation:</strong> Alpha controls how strongly your trained
-                                        adapter affects the final output. It's like a volume knob for your training.</p>
-                                    <p><strong>Rule of thumb:</strong> Always set this to 2× your rank value:</p>
+                                    <p><strong>Simple explanation:</strong> Alpha scales the strength of the adapter's updates. The ratio of alpha to rank is what matters — not the absolute value.</p>
+                                    <p><strong>LoRA / DoRA rule:</strong> Alpha = 2 × rank</p>
                                     <ul>
                                         <li>Rank 16 → Alpha 32</li>
-                                        <li>Rank 32 → Alpha 64</li>
                                         <li>Rank 64 → Alpha 128</li>
                                         <li>Rank 128 → Alpha 256</li>
                                     </ul>
-                                    <p><strong>When to change:</strong> Almost never! The 2× rule works for 99% of
-                                        cases. Only advanced users experimenting with specific techniques should adjust
-                                        this.</p>
-                                    <p><strong>Impact:</strong></p>
-                                    <span class="impact-badge impact-neutral">VRAM: None</span>
-                                    <span class="impact-badge impact-quality">Quality: Stick to 2× rank rule</span>
+                                    <p><strong>LoKR / LoHA rule:</strong> Alpha = 1 × dim (equal, not 2×). This is configured in their own sections below.</p>
+                                    <p><strong>What happens if you change the ratio?</strong></p>
+                                    <ul>
+                                        <li>Alpha &gt; 2× rank — stronger updates, can overfit faster</li>
+                                        <li>Alpha = rank (1:1) — conservative, more stable</li>
+                                        <li>Alpha &lt; rank — very weak updates, underfitting risk</li>
+                                    </ul>
+                                    <span class="impact-badge impact-quality">Quality: Affects update strength</span>
+                                    <span class="impact-badge impact-neutral">VRAM: No impact</span>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -1118,10 +1169,12 @@
                     <!-- LoKR Configuration -->
                     <div class="section" id="lokrSection" style="display: none;">
                         <h2>LoKR Configuration</h2>
-                        <div class="alert alert-warning">
-                            <strong>⚠️ Experimental:</strong> LoKR is less tested than LoRA. The LyCORIS library
-                            interaction with Lightning Fabric may have rough edges. If you encounter issues, fall back
-                            to LoRA.
+                        <div class="alert alert-info" style="margin-bottom: 12px;">
+                            <strong>💡 LoKR Recommended Settings:</strong><br>
+                            LoKR uses Kronecker products which are more parameter-efficient than LoRA, so you need <em>much lower</em> dimension values.
+                            Start with <strong>dim 16, alpha 16</strong> (1:1 ratio). Going higher than 32 rarely helps and wastes VRAM.<br>
+                            <strong>LR:</strong> Use a higher LR than LoRA — try <strong>5e-4 to 1e-3</strong> (LoRA typically uses 3e-4).<br>
+                            <strong>Alpha rule:</strong> Keep alpha = dim (1:1) for LoKR, unlike LoRA where 2:1 is common.
                         </div>
                         <div class="form-row">
                             <div class="form-group">
@@ -1129,21 +1182,21 @@
                                     Linear Dimension
                                     <span class="help-icon" onclick="toggleHelp('help-lokr-dim')">?</span>
                                 </label>
-                                <input type="number" name="lokr_linear_dim" value="64" min="1">
-                                <span class="help-text">Analogous to LoRA rank</span>
+                                <input type="number" name="lokr_linear_dim" value="16" min="1">
+                                <span class="help-text">Start at 16. LoKR is more efficient than LoRA — don't copy LoRA rank values here.</span>
                                 <div id="help-lokr-dim" class="detailed-help">
-                                    <h4>What is Linear Dimension?</h4>
-                                    <p><strong>Simple explanation:</strong> Like LoRA's "rank" - controls how much the
-                                        adapter can learn. Higher = more capacity.</p>
-                                    <p><strong>Same guidance as LoRA rank:</strong></p>
+                                    <h4>LoKR Linear Dimension</h4>
+                                    <p><strong>Simple explanation:</strong> Analogous to LoRA rank, but LoKR is intrinsically more compact due to Kronecker factorization. A dim of 16 in LoKR captures similar capacity to rank 64 in LoRA.</p>
+                                    <p><strong>Recommended values:</strong></p>
                                     <ul>
-                                        <li><code>16</code> - Quick tests</li>
-                                        <li><code>64</code> - Recommended default</li>
-                                        <li><code>128</code> - Maximum quality</li>
+                                        <li><code>8</code> — Minimal, very small datasets</li>
+                                        <li><code>16</code> — <strong>Recommended starting point</strong></li>
+                                        <li><code>32</code> — More capacity, try if 16 isn't enough</li>
+                                        <li><code>64+</code> — Rarely needed, usually wastes VRAM</li>
                                     </ul>
-                                    <p><strong>Impact:</strong></p>
+                                    <p><strong>Unlike LoRA:</strong> Don't use 64 or 128 here — those values are LoRA values and are too high for LoKR.</p>
                                     <span class="impact-badge impact-vram">VRAM: Higher = More</span>
-                                    <span class="impact-badge impact-quality">Quality: Higher = More capacity</span>
+                                    <span class="impact-badge impact-quality">Quality: 16-32 is usually sufficient</span>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -1151,18 +1204,19 @@
                                     Linear Alpha
                                     <span class="help-icon" onclick="toggleHelp('help-lokr-alpha')">?</span>
                                 </label>
-                                <input type="number" name="lokr_linear_alpha" value="128" min="1">
-                                <span class="help-text">Keep at 2x linear dim</span>
+                                <input type="number" name="lokr_linear_alpha" value="16" min="1">
+                                <span class="help-text">Keep equal to dim (1:1 ratio for LoKR — different from LoRA's 2:1)</span>
                                 <div id="help-lokr-alpha" class="detailed-help">
-                                    <h4>What is Linear Alpha?</h4>
-                                    <p><strong>Simple explanation:</strong> Like LoRA's "alpha" - controls adapter
-                                        strength. Keep at 2× linear dimension.</p>
-                                    <p><strong>Rule:</strong> Linear alpha = 2 × linear dimension</p>
+                                    <h4>LoKR Linear Alpha</h4>
+                                    <p><strong>Simple explanation:</strong> Scaling factor for the LoKR adapter strength.</p>
+                                    <p><strong>LoKR rule: alpha = dim (1:1 ratio)</strong></p>
+                                    <p>This is different from LoRA where alpha = 2× rank. For LoKR, keeping them equal is the standard practice:</p>
                                     <ul>
-                                        <li>Dim 16 → Alpha 32</li>
-                                        <li>Dim 64 → Alpha 128</li>
-                                        <li>Dim 128 → Alpha 256</li>
+                                        <li>Dim 8 → Alpha 8</li>
+                                        <li>Dim 16 → Alpha 16</li>
+                                        <li>Dim 32 → Alpha 32</li>
                                     </ul>
+                                    <p><strong>Why different from LoRA?</strong> LoKR's Kronecker structure handles scaling differently — the 1:1 ratio gives effective neutrally-scaled updates.</p>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -1174,12 +1228,8 @@
                                 <span class="help-text">Kronecker factorization factor (-1 = auto)</span>
                                 <div id="help-lokr-factor" class="detailed-help">
                                     <h4>What is Factor?</h4>
-                                    <p><strong>Simple explanation:</strong> How to split up the Kronecker product math.
-                                        -1 = let the library figure it out automatically.</p>
-                                    <p><strong>Technical:</strong> Determines how the weight matrix is factorized into
-                                        Kronecker products.</p>
-                                    <p><strong>Recommendation:</strong> Leave at <code>-1</code> (auto) unless you
-                                        really know what you're doing.</p>
+                                    <p><strong>Simple explanation:</strong> How to split up the Kronecker product math. -1 = let the library figure it out automatically.</p>
+                                    <p><strong>Recommendation:</strong> Leave at <code>-1</code> (auto) unless you really know what you're doing.</p>
                                 </div>
                             </div>
                         </div>
@@ -1510,38 +1560,26 @@ Where:
                                     <span class="help-icon" onclick="toggleHelp('help-lr')">?</span>
                                 </label>
                                 <input type="number" name="learning_rate" value="0.0003" step="0.0001">
-                                <span class="help-text">Beta 1 default: 3e-4 (was 1e-4 in Alpha)</span>
+                                <span class="help-text">Default: 3e-4. <strong>LoKR users: try 5e-4 to 1e-3</strong></span>
                                 <div id="help-lr" class="detailed-help">
                                     <h4>What is Learning Rate?</h4>
-                                    <p><strong>Simple explanation:</strong> How big of a "step" the AI takes when
-                                        learning. Too big = learning goes haywire. Too small = takes forever to learn.
-                                    </p>
-                                    <p><strong>Think of it like:</strong> Walking speed while learning to navigate.
-                                        Sprint = fast but might miss things or crash. Crawl = safe but takes ages.</p>
-                                    <p><strong>Common values:</strong></p>
+                                    <p><strong>Simple explanation:</strong> How big of a "step" the AI takes when learning. Too big = unstable. Too small = takes forever.</p>
+                                    <p><strong>By adapter type:</strong></p>
                                     <ul>
-                                        <li><code>0.0001</code> (or 1e-4) - Standard default, safe for most cases</li>
-                                        <li><code>0.00005</code> (or 5e-5) - More stable, use if training is unstable
-                                        </li>
-                                        <li><code>0.0002</code> (or 2e-4) - Faster learning, riskier</li>
-                                        <li><code>1.0</code> - ONLY for Prodigy optimizer (it auto-adjusts internally)
-                                        </li>
-                                    </ul>
-                                    <p><strong>How to write it:</strong> Can use either format:</p>
-                                    <ul>
-                                        <li><code>0.0001</code> = <code>1e-4</code> (scientific notation)</li>
-                                        <li><code>0.00005</code> = <code>5e-5</code></li>
+                                        <li><strong>LoRA / DoRA:</strong> <code>3e-4</code> (0.0003) — default, works well</li>
+                                        <li><strong>LoKR:</strong> <code>5e-4 to 1e-3</code> — LoKR benefits from a higher LR due to its more efficient parameterization</li>
+                                        <li><strong>LoHA:</strong> <code>3e-4 to 5e-4</code> — similar to LoRA</li>
+                                        <li><strong>OFT:</strong> <code>1e-4 to 3e-4</code> — start conservative</li>
+                                        <li><strong>Prodigy optimizer:</strong> <code>1.0</code> — always use 1.0, it auto-adjusts</li>
                                     </ul>
                                     <p><strong>Signs you need to adjust:</strong></p>
                                     <ul>
-                                        <li>Loss jumping all over → Lower LR (try 5e-5)</li>
-                                        <li>Loss barely changing after many epochs → Higher LR (try 2e-4)</li>
+                                        <li>Loss jumping wildly → Lower LR (halve it)</li>
+                                        <li>Loss barely moving after 100 epochs → Higher LR (double it)</li>
+                                        <li>Loss decreases then suddenly spikes → LR too high, reduce by 30%</li>
                                     </ul>
-                                    <p><strong>Impact:</strong></p>
                                     <span class="impact-badge impact-neutral">VRAM: None</span>
                                     <span class="impact-badge impact-quality">Quality: Critical tuning parameter</span>
-                                    <span class="impact-badge impact-speed">Speed: Higher = faster learning (but less
-                                        stable)</span>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -1699,7 +1737,7 @@ Where:
                             <div class="form-group">
                                 <label>Weight Decay</label>
                                 <input type="number" name="weight_decay" value="0.01" step="0.001">
-                                <span class="help-text">L2 regularization (0.01 default)</span>
+                                <span class="help-text">Default 0.01 works for all adapters. LoKR: try 0.001–0.01</span>
                             </div>
                             <div class="form-group">
                                 <label>Max Gradient Norm</label>
@@ -1812,29 +1850,30 @@ Where:
 
                     <!-- CFG & Loss Settings -->
                     <div class="section" id="cfgLossSection">
-                        <h2>CFG & Loss Settings (Base/SFT only)</h2>
+                        <h2>CFG & Loss Settings</h2>
                         <div class="alert alert-info">
-                            These settings are auto-disabled for turbo models
+                            <strong>By model:</strong> Auto-disabled for <code>turbo</code> and <code>xl-turbo</code>. Active for <code>base</code>, <code>sft</code>, <code>xl-base</code>, <code>xl-sft</code>.<br>
+                            <strong>By adapter:</strong> Same settings apply to LoRA, LoKR, LoHA and OFT — no adapter-specific changes needed here.
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>CFG Dropout Ratio</label>
                                 <input type="number" name="cfg_ratio" value="0.15" step="0.01" min="0" max="1">
-                                <span class="help-text">Null-condition probability. Base trained with 0.15 - match
-                                    it</span>
+                                <span class="help-text">Match the value the model was trained with. Base/SFT/XL-base/XL-sft: 0.15</span>
                             </div>
                             <div class="form-group">
                                 <label>Loss Weighting</label>
                                 <select name="loss_weighting">
-                                    <option value="none" selected>None (flat MSE)</option>
-                                    <option value="min_snr">Min-SNR (rebalances across noise levels)</option>
+                                    <option value="flow_snr" selected>Flow SNR (recommended - correct for rectified flow)</option>
+                                    <option value="min_snr">Min SNR (legacy DDPM)</option>
+                                    <option value="none">None (flat MSE)</option>
                                 </select>
-                                <span class="help-text">Try min_snr if base/sft output sounds mushy</span>
+                                <span class="help-text">flow_snr is the new recommended default for ACE-Step</span>
                             </div>
                             <div class="form-group">
                                 <label>SNR Gamma</label>
                                 <input type="number" name="snr_gamma" value="5.0" step="0.1">
-                                <span class="help-text">Aggressiveness of min-SNR (only with min_snr)</span>
+                                <span class="help-text">Gamma clamp for flow_snr/min_snr weighting (default: 5.0)</span>
                             </div>
                         </div>
                     </div>
@@ -1980,6 +2019,42 @@ Where:
                             <span class="impact-badge impact-speed">Speed: 10-30% slower training</span>
                             <span class="impact-badge impact-quality">Quality: No impact</span>
                         </div>
+                        <div class="form-group" style="margin-left: 30px; margin-top: 10px;">
+                            <label>
+                                Gradient Checkpointing Ratio
+                                <span class="help-icon" onclick="toggleHelp('help-grad-checkpoint-ratio')">?</span>
+                            </label>
+                            <input type="number" name="gradient_checkpointing_ratio" value="0.6" step="0.1" min="0" max="1">
+                            <span class="help-text">Fraction of decoder layers to checkpoint (0.0=none, 1.0=all). Default: 0.6 for optimal VRAM savings</span>
+                            <div id="help-grad-checkpoint-ratio" class="detailed-help">
+                                <h4>What is Gradient Checkpointing Ratio?</h4>
+                                <p><strong>Simple explanation:</strong> Controls what fraction of the model's decoder layers use gradient checkpointing. A ratio of 0.6 means 60% of layers are checkpointed.</p>
+                                
+                                <p><strong>Think of it like:</strong> Instead of checkpointing ALL layers (which saves maximum VRAM but is slowest), you can checkpoint only 60% of them for a good balance.</p>
+                                
+                                <p><strong>Valid values:</strong></p>
+                                <ul>
+                                    <li><code>0.0</code> - No checkpointing (fastest, most VRAM)</li>
+                                    <li><code>0.6</code> - Checkpoint 60% of layers (recommended balance)</li>
+                                    <li><code>1.0</code> - Checkpoint all layers (maximum VRAM savings, slowest)</li>
+                                </ul>
+                                
+                                <p><strong>Recommended settings:</strong></p>
+                                <ul>
+                                    <li><strong>0.6</strong> - Best balance for most users (default)</li>
+                                    <li><strong>0.8-1.0</strong> - If very low on VRAM (8-12GB)</li>
+                                    <li><strong>0.4-0.5</strong> - If you have more VRAM and want speed</li>
+                                    <li><strong>0.0</strong> - If you have 24GB+ VRAM and disabled gradient checkpointing</li>
+                                </ul>
+                                
+                                <p><strong>Note:</strong> Only applies when "Gradient Checkpointing" is enabled.</p>
+                                
+                                <p><strong>Impact:</strong></p>
+                                <span class="impact-badge impact-vram">VRAM: Higher ratio = more savings</span>
+                                <span class="impact-badge impact-speed">Speed: Higher ratio = slightly slower</span>
+                                <span class="impact-badge impact-quality">Quality: No impact</span>
+                            </div>
+                        </div>
                         <div class="checkbox-group">
                             <input type="checkbox" name="offload_encoder" id="offload">
                             <label for="offload">
@@ -2012,6 +2087,34 @@ Where:
                             <span class="impact-badge impact-neutral">Speed: Zero impact</span>
                             <span class="impact-badge impact-neutral">Quality: Zero impact</span>
                         </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="weight_quantize" id="weight_quantize">
+                            <label for="weight_quantize">
+                                Weight Quantization (quantizes frozen backbone to save VRAM)
+                                <span class="help-icon" onclick="toggleHelp('help-weight-quantize')">?</span>
+                            </label>
+                        </div>
+                        <div id="help-weight-quantize" class="detailed-help">
+                            <h4>What is Weight Quantization?</h4>
+                            <p><strong>Simple explanation:</strong> Compresses the frozen (non-training) parts of the model from 32/16-bit to 8-bit numbers. This dramatically reduces the VRAM needed to hold the backbone model.</p>
+                            <p><strong>Think of it like:</strong> Using shorthand notation instead of full words — the meaning is preserved but takes up less space.</p>
+                            <p><strong>VRAM savings:</strong> Can save 4-8GB depending on model size. Very significant for XL models.</p>
+                            <p><strong>Quality impact:</strong> Minimal — the frozen backbone isn't being trained, just loaded.</p>
+                            <p><strong>Requires installation:</strong> Run this once from your Side-Step folder:</p>
+                                <pre style="background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px; font-size: 0.85em; margin: 8px 0;">cd C:\path\to\Side-Step
+uv pip install optimum-quanto</pre>
+                                <p style="font-size: 0.85em; color: #666;">⚠️ Do NOT use plain <code>pip install</code> — that installs into your system Python, not the Side-Step UV environment. Must be <code>uv pip install</code> from the Side-Step directory.</p>
+                            <span class="impact-badge impact-vram">VRAM: Saves 4-8GB</span>
+                            <span class="impact-badge impact-neutral">Quality: Minimal impact</span>
+                        </div>
+                        <div class="form-group" id="weightQtypeGroup" style="display: none; margin-left: 30px; margin-top: 8px;">
+                            <label>Quantization Type</label>
+                            <select name="weight_qtype">
+                                <option value="qfloat8" selected>qfloat8 (recommended)</option>
+                                <option value="qint8">qint8</option>
+                            </select>
+                            <span class="help-text">qfloat8 recommended for LoRA training</span>
+                        </div>
                     </div>
 
                     <!-- Data Loading -->
@@ -2023,8 +2126,8 @@ Where:
                                     Number of Workers
                                     <span class="help-icon" onclick="toggleHelp('help-workers')">?</span>
                                 </label>
-                                <input type="number" name="num_workers" value="0" min="0">
-                                <span class="help-text">Default: 4 (Linux), 0 (Windows). Set to 0 if low on RAM</span>
+                                <input type="number" name="num_workers" value="2" min="0">
+                                <span class="help-text">Default: 2 (Linux), 0 (Windows). Set to 0 if low on RAM</span>
                                 <div id="help-workers" class="detailed-help">
                                     <h4>What are Data Loading Workers?</h4>
                                     <p><strong>Simple explanation:</strong> "Workers" are separate helper processes that
@@ -2095,7 +2198,7 @@ Where:
                                     Prefetch Factor
                                     <span class="help-icon" onclick="toggleHelp('help-prefetch')">?</span>
                                 </label>
-                                <input type="number" name="prefetch_factor" value="0" min="0">
+                                <input type="number" name="prefetch_factor" value="2" min="0">
                                 <span class="help-text">Default: 2 (Linux), 0 (Windows)</span>
                                 <div id="help-prefetch" class="detailed-help">
                                     <h4>What is Prefetch Factor?</h4>
@@ -2337,6 +2440,299 @@ Where:
                             <span class="help-text">Path to checkpoint-epoch-N directory</span>
                         </div>
                     </div>
+
+                    <!-- EMA & Validation -->
+                    <div class="section">
+                        <h2>EMA & Validation</h2>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    EMA Decay
+                                    <span class="help-icon" onclick="toggleHelp('help-ema')">?</span>
+                                </label>
+                                <input type="number" name="ema_decay" value="0.0" step="0.0001" min="0" max="1">
+                                <span class="help-text">0 = off. Use 0.9999 to enable. Smooths adapter updates for potentially better quality.</span>
+                                <div id="help-ema" class="detailed-help">
+                                    <h4>What is EMA Decay?</h4>
+                                    <p><strong>Simple explanation:</strong> EMA (Exponential Moving Average) keeps a smoothed "shadow" copy of your adapter weights. Instead of saving the raw trained weights, it saves a running average that changes more slowly — like smoothing a noisy signal.</p>
+                                    <p><strong>Think of it like:</strong> Instead of using today's temperature as the forecast, you average the last 10,000 days. More stable, less affected by single bad training steps.</p>
+                                    <p><strong>Use:</strong> <code>0.0</code> = off (default). <code>0.9999</code> = typical. Higher = smoother but slower to update.</p>
+                                    <p><strong>When to use:</strong> If your training is noisy or you want more stable results. Small compute overhead.</p>
+                                    <span class="impact-badge impact-quality">Quality: May improve stability</span>
+                                    <span class="impact-badge impact-neutral">VRAM: Tiny overhead</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>EMA Start Step</label>
+                                <input type="number" name="ema_start_step" value="2000" min="0">
+                                <span class="help-text">Step at which EMA tracking begins. Default: 2000 (avoids early unstable steps)</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Validation Split
+                                    <span class="help-icon" onclick="toggleHelp('help-val-split')">?</span>
+                                </label>
+                                <input type="number" name="val_split" value="0.0" step="0.05" min="0" max="0.5">
+                                <span class="help-text">0 = off. Use 0.1 to hold out 10% for validation. Helps spot overfitting.</span>
+                                <div id="help-val-split" class="detailed-help">
+                                    <h4>What is Validation Split?</h4>
+                                    <p><strong>Simple explanation:</strong> Reserves a portion of your dataset that the model never trains on. After each epoch, the trainer checks how well it performs on these held-out samples. If training loss keeps falling but validation loss rises, you're overfitting.</p>
+                                    <p><strong>Use:</strong> <code>0.0</code> = off (default). <code>0.1</code> = hold out 10% for validation.</p>
+                                    <p><strong>When to use:</strong> Larger datasets (50+ tracks) where you can afford to hold some back. Not ideal for tiny datasets.</p>
+                                    <span class="impact-badge impact-quality">Quality: Helps prevent overfitting</span>
+                                    <span class="impact-badge impact-neutral">Speed: Tiny overhead per epoch</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Early Stop Patience
+                                    <span class="help-icon" onclick="toggleHelp('help-early-stop')">?</span>
+                                </label>
+                                <input type="number" name="early_stop_patience" value="0" min="0">
+                                <span class="help-text">0 = off. Stop training if no loss improvement for N epochs. Saves GPU time.</span>
+                                <div id="help-early-stop" class="detailed-help">
+                                    <h4>What is Early Stop Patience?</h4>
+                                    <p><strong>Simple explanation:</strong> Automatically stops training if the loss hasn't improved for N epochs. Prevents wasting GPU time once training has plateaued.</p>
+                                    <p><strong>Use:</strong> <code>0</code> = disabled (default). <code>50</code> = stop after 50 epochs with no improvement.</p>
+                                    <p><strong>When to use:</strong> When you set a high epoch count but don't want to overshoot. Good for overnight runs.</p>
+                                    <span class="impact-badge impact-speed">Speed: Saves GPU time</span>
+                                    <span class="impact-badge impact-quality">Quality: Prevents overtraining</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Save Best After Epoch</label>
+                                <input type="number" name="save_best_after" value="200" min="0">
+                                <span class="help-text">Don't track best model until after this epoch (default: 200). Avoids saving unstable early checkpoints.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Per-Layer Learning Rate Scaling -->
+                    <div class="section">
+                        <h2>Per-Layer Learning Rate Scaling</h2>
+                        <div class="alert alert-info" style="margin-bottom: 15px;">
+                            <strong>Advanced:</strong> Apply different learning rate multipliers to different parts of the adapter. Default is 1.0 for all (uniform LR). Useful for fine-tuning which layers learn faster.
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Self-Attention LR Scale
+                                    <span class="help-icon" onclick="toggleHelp('help-lr-self')">?</span>
+                                </label>
+                                <input type="number" name="lr_scale_self_attn" value="1.0" step="0.1" min="0">
+                                <span class="help-text">LR multiplier for self-attention layers (default: 1.0)</span>
+                                <div id="help-lr-self" class="detailed-help">
+                                    <h4>Per-Layer LR Scaling</h4>
+                                    <p><strong>Simple explanation:</strong> Multiplies the base learning rate separately for self-attention, cross-attention, and MLP layers. <code>1.0</code> = same as base LR. <code>0.5</code> = half the LR. <code>2.0</code> = double the LR.</p>
+                                    <p><strong>Self-attention:</strong> Controls how the model attends to itself (musical structure, patterns)</p>
+                                    <p><strong>Cross-attention:</strong> Controls how the model responds to text prompts (genre, mood, style)</p>
+                                    <p><strong>MLP:</strong> The feedforward layers (transforms and processes features)</p>
+                                    <p><strong>When to use:</strong> If you notice certain aspects aren't being captured well. E.g. lower cross-attn scale if style is drifting too much.</p>
+                                    <span class="impact-badge impact-quality">Quality: Advanced tuning</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Cross-Attention LR Scale</label>
+                                <input type="number" name="lr_scale_cross_attn" value="1.0" step="0.1" min="0">
+                                <span class="help-text">LR multiplier for cross-attention layers (default: 1.0)</span>
+                            </div>
+                            <div class="form-group">
+                                <label>MLP LR Scale</label>
+                                <input type="number" name="lr_scale_mlp" value="1.0" step="0.1" min="0">
+                                <span class="help-text">LR multiplier for MLP/FFN layers (default: 1.0)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Target Loss Cruise Control -->
+                    <div class="section">
+                        <h2>Target Loss Cruise Control</h2>
+                        <div class="alert alert-info" style="margin-bottom: 15px;">
+                            <strong>Auto LR Adjustment:</strong> Automatically damps the learning rate as training approaches a target loss value, preventing overfitting and holding training steady at a chosen quality level. Set Target Loss to 0 to disable.
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Target Loss
+                                    <span class="help-icon" onclick="toggleHelp('help-target-loss')">?</span>
+                                </label>
+                                <input type="number" name="target_loss" value="0.0" step="0.01" min="0">
+                                <span class="help-text">0 = disabled. Set a value like 0.05 to hold training steady when loss reaches it.</span>
+                                <div id="help-target-loss" class="detailed-help">
+                                    <h4>What is Target Loss Cruise Control?</h4>
+                                    <p><strong>Simple explanation:</strong> Like cruise control in a car — instead of flooring the accelerator all the way to the end, the trainer automatically eases off the LR as you approach your target loss. This prevents blowing past the ideal stopping point.</p>
+                                    <p><strong>How it works:</strong> As the smoothed loss gets close to your target value, the LR is progressively reduced (damped). At exactly the target, LR drops to the floor multiplier.</p>
+                                    <p><strong>Use:</strong> Set to a loss value you observed in previous runs as a good quality checkpoint. e.g. <code>0.04</code> or <code>0.05</code>.</p>
+                                    <p><strong>Leave at 0</strong> if you're unsure — it's safe to ignore.</p>
+                                    <span class="impact-badge impact-quality">Quality: Prevents overfitting at target</span>
+                                    <span class="impact-badge impact-speed">Speed: May extend training slightly</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Target Loss Floor</label>
+                                <input type="number" name="target_loss_floor" value="0.01" step="0.001" min="0" max="1">
+                                <span class="help-text">Minimum LR multiplier at target loss (default: 0.01 = 1% of scheduled LR)</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Target Loss Warmup</label>
+                                <input type="number" name="target_loss_warmup" value="50" min="0">
+                                <span class="help-text">Minimum steps before cruise control engages (default: 50)</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Target Loss Smoothing</label>
+                                <input type="number" name="target_loss_smoothing" value="0.98" step="0.01" min="0" max="1">
+                                <span class="help-text">EMA beta for loss smoothing (default: 0.98 — higher = smoother)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Options -->
+                    <div class="section">
+                        <h2>Advanced Options</h2>
+                        <div class="alert alert-info" style="margin-bottom:15px;">
+                            These fields are omitted from the CLI command unless you change them from their defaults. Leave blank or at default to have Side-Step use its own defaults.
+                        </div>
+
+                        <!-- Loss function -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Loss Function
+                                    <span class="help-icon" onclick="toggleHelp('help-loss-fn')">?</span>
+                                </label>
+                                <select name="loss_fn">
+                                    <option value="mse" selected>MSE (default — mean squared error)</option>
+                                    <option value="huber">Huber (robust to outliers)</option>
+                                    <option value="pseudo_huber">Pseudo-Huber (smooth Huber)</option>
+                                    <option value="x0_mse">x0 MSE (loss on reconstructed x0)</option>
+                                    <option value="x0_pseudo_huber">x0 Pseudo-Huber</option>
+                                </select>
+                                <span class="help-text">Default: mse. Huber variants are more robust to noisy/outlier samples.</span>
+                                <div id="help-loss-fn" class="detailed-help">
+                                    <h4>Loss Function</h4>
+                                    <p>Controls how training error is calculated at each step.</p>
+                                    <ul>
+                                        <li><strong>mse</strong> — Standard mean squared error. Default and well-tested.</li>
+                                        <li><strong>huber</strong> — Like MSE but less sensitive to outlier samples. Useful if your dataset has some unusual/noisy tracks.</li>
+                                        <li><strong>pseudo_huber</strong> — Smooth version of Huber, differentiable everywhere.</li>
+                                        <li><strong>x0_mse / x0_pseudo_huber</strong> — Compute loss on the reconstructed clean signal rather than the noise prediction. Applies t² weighting. More experimental.</li>
+                                    </ul>
+                                    <span class="impact-badge impact-quality">Quality: Minor effect in most cases</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Huber Delta</label>
+                                <input type="number" name="huber_delta" value="1.0" step="0.1" min="0">
+                                <span class="help-text">Threshold between MSE and linear regions in Huber loss (default: 1.0). Only used with huber/pseudo_huber.</span>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Timestep Mode
+                                    <span class="help-icon" onclick="toggleHelp('help-timestep-mode')">?</span>
+                                </label>
+                                <select name="timestep_mode">
+                                    <option value="continuous" selected>Continuous (logit-normal, recommended)</option>
+                                    <option value="discrete">Discrete (8-step turbo schedule)</option>
+                                </select>
+                                <span class="help-text">How timesteps are sampled during training. Continuous is correct for base/XL models.</span>
+                                <div id="help-timestep-mode" class="detailed-help">
+                                    <h4>Timestep Mode</h4>
+                                    <p><strong>Continuous</strong> — Samples timesteps from a logit-normal distribution. Correct for base, sft, xl-base, xl-sft models.</p>
+                                    <p><strong>Discrete</strong> — Uses the fixed 8-step turbo schedule. Only appropriate for turbo/xl-turbo models. Auto-selected when using a turbo model.</p>
+                                    <span class="impact-badge impact-quality">Quality: Must match model type</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dataset repeats + save best n steps -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Dataset Repeats
+                                    <span class="help-icon" onclick="toggleHelp('help-dataset-repeats')">?</span>
+                                </label>
+                                <input type="number" name="dataset_repeats" value="1" min="1">
+                                <span class="help-text">Repeat the whole dataset N times per epoch (default: 1). Useful for very small datasets.</span>
+                                <div id="help-dataset-repeats" class="detailed-help">
+                                    <h4>Dataset Repeats</h4>
+                                    <p>Loops through your dataset N times within each epoch. For a 5-song dataset, setting this to 4 makes each epoch see 20 samples instead of 5 — effectively the same as having a larger dataset without duplicating files on disk.</p>
+                                    <p><strong>When to use:</strong> Very small datasets (under 10 songs). More than 4-5× repetition risks overfitting.</p>
+                                    <span class="impact-badge impact-speed">Speed: Longer epochs</span>
+                                    <span class="impact-badge impact-quality">Quality: Helps tiny datasets</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Save Best Every N Steps</label>
+                                <input type="number" name="save_best_every_n_steps" value="0" min="0">
+                                <span class="help-text">Check for best model every N steps within an epoch (0 = epoch-level only, default). Use for very long epochs.</span>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Strict Resume
+                                    <span class="help-icon" onclick="toggleHelp('help-strict-resume')">?</span>
+                                </label>
+                                <select name="strict_resume">
+                                    <option value="true" selected>True (abort on mismatch — default)</option>
+                                    <option value="false">False (allow config mismatch)</option>
+                                </select>
+                                <span class="help-text">Whether to abort if resumed checkpoint config doesn't match current settings. Only relevant when using Resume From.</span>
+                                <div id="help-strict-resume" class="detailed-help">
+                                    <h4>Strict Resume</h4>
+                                    <p>When resuming from a checkpoint, Side-Step checks if the current settings match the original training config. If they differ:</p>
+                                    <ul>
+                                        <li><strong>True (default)</strong> — Abort with an error. Safer — prevents accidentally training with wrong settings.</li>
+                                        <li><strong>False</strong> — Continue anyway. Useful if you intentionally changed a setting (e.g. LR) mid-training.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Scheduler fine-tuning -->
+                        <h3 style="margin: 20px 0 10px 0; font-size: 1em; color: #555; border-top: 1px solid #eee; padding-top: 15px;">Scheduler Fine-tuning</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    Warmup Start Factor
+                                    <span class="help-icon" onclick="toggleHelp('help-warmup-factor')">?</span>
+                                </label>
+                                <input type="number" name="warmup_start_factor" value="0.1" step="0.05" min="0" max="1">
+                                <span class="help-text">LR starts at base_lr × this during warmup (default: 0.1 = 10% of LR).</span>
+                                <div id="help-warmup-factor" class="detailed-help">
+                                    <h4>Warmup Start Factor</h4>
+                                    <p>During the warmup phase, the LR ramps from <code>base_lr × warmup_start_factor</code> up to <code>base_lr</code>. A lower value = gentler start.</p>
+                                    <p><strong>Default 0.1:</strong> LR starts at 10% and ramps up over warmup_steps. This prevents early training instability.</p>
+                                    <span class="impact-badge impact-quality">Quality: Gentler start = more stable early training</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Cosine Min LR Ratio
+                                    <span class="help-icon" onclick="toggleHelp('help-cosine-min')">?</span>
+                                </label>
+                                <input type="number" name="cosine_eta_min_ratio" value="0.01" step="0.005" min="0" max="1">
+                                <span class="help-text">Cosine scheduler decays LR to base_lr × this (default: 0.01 = 1% of LR at end).</span>
+                                <div id="help-cosine-min" class="detailed-help">
+                                    <h4>Cosine Min LR Ratio</h4>
+                                    <p>The cosine scheduler decays the LR smoothly from <code>base_lr</code> down to <code>base_lr × cosine_eta_min_ratio</code>.</p>
+                                    <p><strong>Default 0.01:</strong> LR ends at 1% of starting value — a very gentle final phase.</p>
+                                    <p><strong>Higher value (e.g. 0.1):</strong> LR doesn't decay as aggressively — keeps learning at 10% rate at the end.</p>
+                                    <span class="impact-badge impact-quality">Quality: Controls final training intensity</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Cosine Restart Cycles</label>
+                                <input type="number" name="cosine_restarts_count" value="4" min="1">
+                                <span class="help-text">Number of cosine restart cycles when using Cosine with Restarts scheduler (default: 4).</span>
+                            </div>
+                        </div>
+                    </div>
+
                     </div><!-- End Training Sections -->
 
                     <!-- Preprocessing Sections (hidden by default) -->
@@ -2590,7 +2986,48 @@ Where:
                 </div>
             </div>
         </div>
-    </div>
+
+            <!-- Import Config Tab -->
+            <div id="importTab" class="tab-content">
+                <div class="section">
+                    <h2>Import Config JSONs</h2>
+                    <div class="alert alert-info">
+                        Side-Step saves two config files per training run. Load either or both — they'll be merged to populate the form.
+                        <br><br>
+                        <strong>training_config.json</strong> — found in your output folder. Contains all training hyperparameters (LR, batch size, epochs, optimizer, paths, etc.) but <em>not</em> adapter details.<br>
+                        <strong>sidestep_adapter_config.json</strong> — found inside each saved checkpoint subfolder. Contains adapter-specific settings (rank/dim, alpha, target modules, etc.)
+                    </div>
+
+                    <div class="form-row">
+                        <!-- Training config -->
+                        <div class="form-group">
+                            <label>training_config.json</label>
+                            <input type="file" id="trainingJsonFile" accept=".json" onchange="loadTrainingJson(event)"
+                                style="display:block; margin-bottom: 6px;">
+                            <textarea id="trainingJsonPaste" rows="6"
+                                placeholder='Or paste training_config.json here...'
+                                style="width:100%; font-family:monospace; font-size:0.82em; padding:8px; border:1px solid #ddd; border-radius:4px; resize:vertical; box-sizing:border-box;"></textarea>
+                            <span id="trainingJsonStatus" style="font-size:0.82em; color:#666;"></span>
+                        </div>
+                        <!-- Adapter config -->
+                        <div class="form-group">
+                            <label>sidestep_adapter_config.json <span style="font-weight:400; color:#888;">(optional)</span></label>
+                            <input type="file" id="adapterJsonFile" accept=".json" onchange="loadAdapterJson(event)"
+                                style="display:block; margin-bottom: 6px;">
+                            <textarea id="adapterJsonPaste" rows="6"
+                                placeholder='Or paste sidestep_adapter_config.json here...'
+                                style="width:100%; font-family:monospace; font-size:0.82em; padding:8px; border:1px solid #ddd; border-radius:4px; resize:vertical; box-sizing:border-box;"></textarea>
+                            <span id="adapterJsonStatus" style="font-size:0.82em; color:#666;"></span>
+                        </div>
+                    </div>
+
+                    <button class="btn-primary" onclick="importBothJsonsToForm()" style="margin-top:8px;">
+                        ⚡ Load into Form
+                    </button>
+
+                    <div id="importResult" style="display:none; margin-top: 16px;"></div>
+                </div>
+            </div>
 
     <script>
         // Global job queue
@@ -2625,6 +3062,26 @@ Where:
             document.querySelector('input[name="task_type"][value="preprocess"]').checked = true;
             updateTaskType();
         }
+
+        function updateCustomModel() {
+            const modelSelect = document.getElementById('modelVariantSelect');
+            const customGroup = document.getElementById('customModelGroup');
+            if (modelSelect.value === 'custom') {
+                customGroup.style.display = 'block';
+            } else {
+                customGroup.style.display = 'none';
+            }
+        }
+
+        // Show/hide qtype when weight quantize checkbox changes
+        document.addEventListener('DOMContentLoaded', function() {
+            const wq = document.getElementById('weight_quantize');
+            if (wq) {
+                wq.addEventListener('change', function() {
+                    document.getElementById('weightQtypeGroup').style.display = this.checked ? 'block' : 'none';
+                });
+            }
+        });
 
         function updateTaskType() {
             const taskType = document.querySelector('input[name="task_type"]:checked').value;
@@ -2662,13 +3119,403 @@ Where:
         }
 
         function switchTab(tabName) {
-            // Update tab buttons
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
-
-            // Update tab content
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+
+        // ============================================================
+        // IMPORT CONFIG TAB — populate the Configure form from JSON
+        // ============================================================
+
+        function setField(name, value) {
+            if (value === null || value === undefined) return false;
+
+            // Radio buttons
+            const radio = document.querySelector(`input[type="radio"][name="${name}"][value="${value}"]`);
+            if (radio) { radio.checked = true; return true; }
+
+            // Checkboxes
+            const checkbox = document.querySelector(`input[type="checkbox"][name="${name}"]`);
+            if (checkbox) {
+                checkbox.checked = !!value && value !== 'false' && value !== false && value !== 0 && value !== '0';
+                return true;
+            }
+
+            // Select dropdowns
+            const select = document.querySelector(`select[name="${name}"]`);
+            if (select) {
+                const strVal = String(value);
+                for (let opt of select.options) {
+                    if (opt.value === strVal) { select.value = strVal; return true; }
+                }
+                // case-insensitive fallback
+                for (let opt of select.options) {
+                    if (opt.value.toLowerCase() === strVal.toLowerCase()) { select.value = opt.value; return true; }
+                }
+                return false;
+            }
+
+            // Text / number inputs
+            const input = document.querySelector(`input[name="${name}"]`);
+            if (input) { input.value = value; return true; }
+
+            return false;
+        }
+
+        function loadTrainingJson(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                document.getElementById('trainingJsonPaste').value = e.target.result;
+                document.getElementById('trainingJsonStatus').textContent = '✅ ' + file.name + ' loaded';
+                document.getElementById('trainingJsonStatus').style.color = '#28a745';
+            };
+            reader.readAsText(file);
+        }
+
+        function loadAdapterJson(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                document.getElementById('adapterJsonPaste').value = e.target.result;
+                document.getElementById('adapterJsonStatus').textContent = '✅ ' + file.name + ' loaded';
+                document.getElementById('adapterJsonStatus').style.color = '#28a745';
+            };
+            reader.readAsText(file);
+        }
+
+        // Keep old single-file function name as alias so nothing breaks
+        function loadJsonFile(event) { loadTrainingJson(event); }
+
+        function importBothJsonsToForm() {
+            // Parse both JSONs — either can be empty
+            const trainingText = document.getElementById('trainingJsonPaste').value.trim();
+            const adapterText  = document.getElementById('adapterJsonPaste').value.trim();
+            const resultDiv    = document.getElementById('importResult');
+
+            if (!trainingText && !adapterText) {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = '<div style="color:red; padding:10px;">Paste at least one JSON file.</div>';
+                return;
+            }
+
+            let trainingCfg = {}, adapterCfg = {};
+
+            if (trainingText) {
+                try { trainingCfg = JSON.parse(trainingText); }
+                catch(e) {
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `<div style="color:red; padding:10px;">❌ Invalid training_config.json: ${e.message}</div>`;
+                    return;
+                }
+            }
+
+            if (adapterText) {
+                try { adapterCfg = JSON.parse(adapterText); }
+                catch(e) {
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `<div style="color:red; padding:10px;">❌ Invalid sidestep_adapter_config.json: ${e.message}</div>`;
+                    return;
+                }
+            }
+
+            // Merge: adapter config key names differ from training config
+            // sidestep_adapter_config uses: linear_dim, linear_alpha, factor, decompose_both,
+            //   use_tucker, use_scalar, weight_decompose, target_modules[], attention_type, target_mlp
+            // We normalise these into the training cfg namespace prefixed with lokr_/loha_
+            // based on the adapter_type from training config
+            const adapter = (trainingCfg.adapter_type || 'lora').toLowerCase();
+
+            if (Object.keys(adapterCfg).length > 0) {
+                if (adapter === 'lokr') {
+                    if (adapterCfg.linear_dim    !== undefined) trainingCfg.lokr_linear_dim    = adapterCfg.linear_dim;
+                    if (adapterCfg.linear_alpha   !== undefined) trainingCfg.lokr_linear_alpha  = adapterCfg.linear_alpha;
+                    if (adapterCfg.factor         !== undefined) trainingCfg.lokr_factor        = adapterCfg.factor;
+                    if (adapterCfg.decompose_both !== undefined) trainingCfg.lokr_decompose_both = adapterCfg.decompose_both;
+                    if (adapterCfg.use_tucker     !== undefined) trainingCfg.lokr_use_tucker    = adapterCfg.use_tucker;
+                    if (adapterCfg.use_scalar     !== undefined) trainingCfg.lokr_use_scalar    = adapterCfg.use_scalar;
+                    if (adapterCfg.weight_decompose !== undefined) trainingCfg.lokr_weight_decompose = adapterCfg.weight_decompose;
+                } else if (adapter === 'loha') {
+                    if (adapterCfg.linear_dim  !== undefined) trainingCfg.loha_linear_dim   = adapterCfg.linear_dim;
+                    if (adapterCfg.linear_alpha !== undefined) trainingCfg.loha_linear_alpha = adapterCfg.linear_alpha;
+                    if (adapterCfg.factor       !== undefined) trainingCfg.loha_factor       = adapterCfg.factor;
+                    if (adapterCfg.use_tucker   !== undefined) trainingCfg.loha_use_tucker   = adapterCfg.use_tucker;
+                    if (adapterCfg.use_scalar   !== undefined) trainingCfg.loha_use_scalar   = adapterCfg.use_scalar;
+                } else {
+                    // LoRA / DoRA
+                    if (adapterCfg.rank  !== undefined) trainingCfg.rank  = adapterCfg.rank;
+                    if (adapterCfg.alpha !== undefined) trainingCfg.alpha = adapterCfg.alpha;
+                }
+
+                // Shared adapter fields
+                if (adapterCfg.attention_type !== undefined) trainingCfg.attention_type = adapterCfg.attention_type;
+                if (adapterCfg.target_mlp     !== undefined) trainingCfg.target_mlp     = adapterCfg.target_mlp;
+                if (adapterCfg.bias           !== undefined) trainingCfg.bias           = adapterCfg.bias;
+
+                // target_modules array → space-separated string for the form field
+                if (Array.isArray(adapterCfg.target_modules) && adapterCfg.target_modules.length > 0) {
+                    trainingCfg.target_modules_str = adapterCfg.target_modules.join(' ');
+                }
+            }
+
+            // Now run the same population logic as before with the merged config
+            applyConfigToForm(trainingCfg, resultDiv);
+        }
+
+        // Keep old entry point as alias
+        function importJsonToForm() { importBothJsonsToForm(); }
+
+        function applyConfigToForm(cfg, resultDiv) {
+            const warnings = [];
+            const skipped  = [];   // wizard-only, no CLI equivalent
+            const noField  = [];   // has CLI equivalent but no form field yet
+
+            // Fields we attempt to apply but have no form input
+            const knownNoFormField = new Set([]);
+
+            const apply = (fieldName, value) => {
+                if (value === null || value === undefined || value === '') return;
+                if (!setField(fieldName, value)) {
+                    // setField returned false — no matching form element
+                    if (knownNoFormField.has(fieldName)) {
+                        noField.push(`${fieldName}: ${value}`);
+                    }
+                }
+            };
+
+            // ── Paths ──────────────────────────────────────────────
+            apply('checkpoint_dir', cfg.checkpoint_dir);
+            apply('dataset_dir',    cfg.dataset_dir);
+            apply('output_dir',     cfg.output_dir);
+            apply('run_name',       cfg.run_name);
+
+            // ── Model ──────────────────────────────────────────────
+            const model = cfg.model_variant || cfg.model;
+            if (model) {
+                const sel = document.querySelector('select[name="model_variant"]');
+                let found = false;
+                if (sel) {
+                    for (let opt of sel.options) {
+                        if (opt.value === model) { sel.value = model; found = true; break; }
+                    }
+                    if (!found) {
+                        sel.value = 'custom';
+                        setField('custom_model_name', model);
+                        document.getElementById('customModelGroup').style.display = 'block';
+                        warnings.push(`Model <strong>${model}</strong> not in dropdown — set to Custom.`);
+                    }
+                }
+            }
+
+            // ── Device / Precision ─────────────────────────────────
+            apply('device',    cfg.device);
+            apply('precision', cfg.precision || cfg.mixed_precision);
+
+            // ── Task type & adapter ────────────────────────────────
+            setField('task_type', 'train');
+            // Update visual .selected class on task type cards
+            document.querySelectorAll('.mode-selector .mode-option').forEach(opt => opt.classList.remove('selected'));
+            const trainRadio = document.querySelector(`input[type="radio"][name="task_type"][value="train"]`);
+            if (trainRadio) {
+                const trainLabel = trainRadio.closest('.mode-option');
+                if (trainLabel) trainLabel.classList.add('selected');
+            }
+            if (typeof updateTaskType === 'function') updateTaskType();
+
+            const adapter = (cfg.adapter_type || 'lora').toLowerCase();
+            apply('adapter_type', adapter);
+            // Update visual .selected class on adapter cards
+            document.querySelectorAll('.adapter-option').forEach(opt => opt.classList.remove('selected'));
+            const adapterRadio = document.querySelector(`input[type="radio"][name="adapter_type"][value="${adapter}"]`);
+            if (adapterRadio) {
+                const adapterLabel = adapterRadio.closest('.adapter-option');
+                if (adapterLabel) adapterLabel.classList.add('selected');
+            }
+            if (typeof updateAdapterSections === 'function') updateAdapterSections();
+
+            // ── LoRA / DoRA ────────────────────────────────────────
+            apply('rank',                cfg.rank);
+            apply('alpha',               cfg.alpha);
+            apply('dropout',             cfg.dropout);
+            apply('attention_type',      cfg.attention_type);
+            apply('bias',                cfg.bias);
+            if (cfg.target_mlp === false) apply('target_mlp', false);
+            if (cfg.target_modules_str)   apply('target_modules',       cfg.target_modules_str);
+            if (cfg.self_target_modules_str)  apply('self_target_modules',  cfg.self_target_modules_str);
+            if (cfg.cross_target_modules_str) apply('cross_target_modules', cfg.cross_target_modules_str);
+
+            // ── LoKR ───────────────────────────────────────────────
+            apply('lokr_linear_dim',      cfg.lokr_linear_dim);
+            apply('lokr_linear_alpha',    cfg.lokr_linear_alpha);
+            apply('lokr_factor',          cfg.lokr_factor);
+            apply('lokr_decompose_both',  cfg.lokr_decompose_both);
+            apply('lokr_use_tucker',      cfg.lokr_use_tucker);
+            apply('lokr_use_scalar',      cfg.lokr_use_scalar);
+            apply('lokr_weight_decompose',cfg.lokr_weight_decompose);
+
+            // ── LoHA ───────────────────────────────────────────────
+            apply('loha_linear_dim',   cfg.loha_linear_dim);
+            apply('loha_linear_alpha', cfg.loha_linear_alpha);
+            apply('loha_factor',       cfg.loha_factor);
+            apply('loha_use_tucker',   cfg.loha_use_tucker);
+            apply('loha_use_scalar',   cfg.loha_use_scalar);
+
+            // ── OFT ────────────────────────────────────────────────
+            apply('oft_block_size', cfg.oft_block_size);
+            apply('oft_coft',       cfg.oft_coft);
+            apply('oft_eps',        cfg.oft_eps);
+
+            // ── Training hyperparameters ───────────────────────────
+            apply('learning_rate',         cfg.learning_rate);
+            apply('batch_size',            cfg.batch_size);
+            apply('gradient_accumulation', cfg.gradient_accumulation_steps || cfg.gradient_accumulation);
+            apply('epochs',                cfg.max_epochs || cfg.epochs);
+            apply('warmup_steps',          cfg.warmup_steps);
+            apply('weight_decay',          cfg.weight_decay);
+            apply('max_grad_norm',         cfg.max_grad_norm);
+            apply('seed',                  cfg.seed);
+            apply('max_steps',             cfg.max_steps);
+            apply('dataset_repeats',       cfg.dataset_repeats);
+
+            // ── Optimizer / Scheduler ──────────────────────────────
+            apply('optimizer_type',    cfg.optimizer_type);
+            apply('scheduler_type',    cfg.scheduler_type);
+            apply('scheduler_formula', cfg.scheduler_formula);
+
+            // ── Chunking ───────────────────────────────────────────
+            apply('chunk_duration',    cfg.chunk_duration);
+            apply('chunk_decay_every', cfg.chunk_decay_every);
+            if (cfg.max_latent_length) apply('max_latent_length', cfg.max_latent_length);
+
+            // ── Shift / timestep ───────────────────────────────────
+            // Reset to base-model defaults if absent from JSON
+            apply('shift',               cfg.shift               ?? 1.0);
+            apply('num_inference_steps', cfg.num_inference_steps ?? 50);
+            if (cfg.timestep_mode) apply('timestep_mode', cfg.timestep_mode);
+
+            // ── CFG & Loss ─────────────────────────────────────────
+            apply('cfg_ratio',      cfg.cfg_ratio);
+            apply('loss_weighting', cfg.loss_weighting);
+            apply('snr_gamma',      cfg.snr_gamma);
+            apply('latent_noise',   cfg.latent_noise);
+            apply('t_bias',         cfg.t_bias);
+
+            // ── Advanced Options ───────────────────────────────────
+            if (cfg.loss_fn)            apply('loss_fn',                    cfg.loss_fn);
+            if (cfg.huber_delta != null) apply('huber_delta',               cfg.huber_delta);
+            if (cfg.timestep_mode)      apply('timestep_mode',              cfg.timestep_mode);
+            apply('dataset_repeats',        cfg.dataset_repeats            ?? 1);
+            apply('save_best_every_n_steps',cfg.save_best_every_n_steps    ?? 0);
+            if (cfg.strict_resume != null)  apply('strict_resume', cfg.strict_resume ? 'true' : 'false');
+            apply('warmup_start_factor',    cfg.warmup_start_factor        ?? 0.1);
+            apply('cosine_eta_min_ratio',   cfg.cosine_eta_min_ratio       ?? 0.01);
+            apply('cosine_restarts_count',  cfg.cosine_restarts_count      ?? 4);
+
+            // ── Memory ─────────────────────────────────────────────
+            apply('gradient_checkpointing',       cfg.gradient_checkpointing);
+            apply('gradient_checkpointing_ratio', cfg.gradient_checkpointing_ratio);
+            if (cfg.gradient_checkpointing_ratio !== undefined &&
+                parseFloat(cfg.gradient_checkpointing_ratio) < 1.0) {
+                warnings.push(`<strong>gradient_checkpointing_ratio = ${cfg.gradient_checkpointing_ratio}</strong> — populated but note the known CLI bug where values below 1.0 may cause a hang before the first epoch.`);
+            }
+            apply('offload_encoder', cfg.offload_encoder);
+            apply('weight_quantize', cfg.weight_quantize);
+            if (cfg.weight_qtype) apply('weight_qtype', cfg.weight_qtype);
+            const wqEl    = document.getElementById('weight_quantize');
+            const wqGroup = document.getElementById('weightQtypeGroup');
+            if (wqEl && wqGroup) wqGroup.style.display = wqEl.checked ? 'block' : 'none';
+
+            // ── Data loading ───────────────────────────────────────
+            apply('num_workers',        cfg.num_workers);
+            apply('prefetch_factor',    cfg.prefetch_factor !== undefined ? cfg.prefetch_factor : null);
+            apply('pin_memory',         cfg.pin_memory);
+            apply('persistent_workers', cfg.persistent_workers);
+
+            // ── Checkpointing & logging ────────────────────────────
+            apply('save_every',         cfg.save_every_n_epochs || cfg.save_every);
+            apply('log_every',          cfg.log_every_n_steps   || cfg.log_every);
+            apply('log_heavy_every',    cfg.log_heavy_every);
+            if (cfg.log_dir && cfg.log_dir !== 'runs') apply('log_dir', cfg.log_dir);
+            if (cfg.resume_from)        apply('resume_from',     cfg.resume_from);
+            apply('save_best_after',    cfg.save_best_after);
+            apply('early_stop_patience',cfg.early_stop_patience);
+            apply('target_loss',        cfg.target_loss);
+            apply('target_loss_floor',  cfg.target_loss_floor);
+            apply('target_loss_warmup', cfg.target_loss_warmup);
+            apply('target_loss_smoothing', cfg.target_loss_smoothing);
+
+            // ── EMA & experimental ─────────────────────────────────
+            apply('ema_decay',               cfg.ema_decay);
+            apply('ema_start_step',          cfg.ema_start_step);
+            apply('val_split',               cfg.val_split);
+            apply('adaptive_timestep_ratio', cfg.adaptive_timestep_ratio);
+            apply('lr_scale_self_attn',      cfg.lr_scale_self_attn);
+            apply('lr_scale_cross_attn',     cfg.lr_scale_cross_attn);
+            apply('lr_scale_mlp',            cfg.lr_scale_mlp);
+
+            // ── Job name from run_name ─────────────────────────────
+            if (cfg.run_name) {
+                const el = document.querySelector('input[name="job_name"]');
+                if (el) el.value = cfg.run_name;
+            }
+
+            // ── EMA warning ────────────────────────────────────────
+            const emaVal = parseFloat(cfg.ema_decay || 0);
+            if (emaVal > 0 && emaVal < 0.9) {
+                warnings.push(`<strong>ema_decay = ${cfg.ema_decay}</strong> — unusual value. EMA is typically 0 (off) or 0.9999. This may be a misconfiguration.`);
+            }
+
+            // ── Skipped wizard-only fields ─────────────────────────
+            const noFormFields = ['is_turbo','vram_profile','data_proportion','crop_mode',
+                'pin_memory_device','fisher_runs','fisher_batches_per_run','convergence_patience',
+                'timestep_focus','rank_min','rank_max','ignore_fisher_map','preprocess',
+                'audio_dir','dataset_json','tensor_output','max_duration','normalize',
+                'timestep_mu','timestep_sigma','full_matrix','bypass_mode','rs_lora',
+                'unbalanced_factorization'];
+            noFormFields.forEach(k => {
+                if (cfg[k] !== undefined && cfg[k] !== null && cfg[k] !== '' &&
+                    cfg[k] !== false && cfg[k] !== 0) {
+                    skipped.push(k);
+                }
+            });
+
+            // ── Build result message ───────────────────────────────
+            let html = '';
+            if (warnings.length > 0) {
+                html += warnings.map(w =>
+                    `<div style="padding:8px 12px; margin-bottom:6px; background:#fff3cd; border-left:3px solid #ffc107; border-radius:4px; font-size:0.88em">⚠️ ${w}</div>`
+                ).join('');
+            }
+            if (noField.length > 0) {
+                html += `<div style="padding:8px 12px; margin-bottom:6px; background:#e8f4fd; border-left:3px solid #17a2b8; border-radius:4px; font-size:0.85em">
+                    <strong>ℹ️ In JSON but no form field (kept at form default):</strong><br>
+                    ${noField.map(f => `<code>${f}</code>`).join(' &nbsp;·&nbsp; ')}
+                </div>`;
+            }
+            if (skipped.length > 0) {
+                html += `<div style="padding:8px 12px; margin-bottom:10px; background:#f8f9fa; border-left:3px solid #adb5bd; border-radius:4px; font-size:0.85em">
+                    <strong>ℹ️ Skipped (wizard-only, no CLI equivalent):</strong> ${skipped.join(', ')}
+                </div>`;
+            }
+            html += `<div style="padding:12px 16px; background:#d4edda; border-left:3px solid #28a745; border-radius:4px;">
+                ✅ <strong>Form populated!</strong> Switching to Configure Job — review settings and update paths before adding to queue.
+            </div>`;
+
+            resultDiv.innerHTML = html;
+            resultDiv.style.display = 'block';
+
+            // Switch to configure tab after brief pause
+            setTimeout(() => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab')[0].classList.add('active');
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById('configureTab').classList.add('active');
+                window.scrollTo(0, 0);
+            }, 1200);
         }
 
         function buildCommand(formData) {
@@ -2739,221 +3586,193 @@ Where:
             // Generate training command
             command += ' train';
 
-            // Required paths
+            // Paths (always required)
             command += ' --checkpoint-dir "' + formData.get('checkpoint_dir') + '"';
             command += ' --dataset-dir "' + formData.get('dataset_dir') + '"';
             command += ' --output-dir "' + formData.get('output_dir') + '"';
 
-            // Model settings
+            // Model
             const modelVariant = formData.get('model_variant');
-            if (modelVariant) {
+            if (modelVariant === 'custom') {
+                const customModel = formData.get('custom_model_name');
+                if (customModel) command += ' --model ' + customModel;
+            } else if (modelVariant) {
                 command += ' --model ' + modelVariant;
             }
 
-            // Note: --base-model removed in Beta 1 (auto-detected)
-            
-            // Run name (optional)
+            // Run name (optional — omit if blank, it auto-generates)
             const runName = formData.get('run_name');
-            if (runName) {
-                command += ' --run-name "' + runName + '"';
-            }
+            if (runName) command += ' --run-name "' + runName + '"';
 
-            if (formData.get('device') !== 'auto') {
-                command += ' --device ' + formData.get('device');
-            }
-            if (formData.get('precision') !== 'auto') {
-                command += ' --precision ' + formData.get('precision');
-            }
+            // Device / precision (omit if auto — auto is the correct default)
+            if (formData.get('device') !== 'auto') command += ' --device ' + formData.get('device');
+            if (formData.get('precision') !== 'auto') command += ' --precision ' + formData.get('precision');
 
-            // Adapter type
+            // Adapter
             const adapterType = formData.get('adapter_type');
-                if (adapterType === 'lokr') {
-                    command += ' --adapter-type lokr';
+            if (adapterType === 'lokr') {
+                command += ' --adapter lokr';
+                command += ' --lokr-linear-dim ' + formData.get('lokr_linear_dim');
+                command += ' --lokr-linear-alpha ' + formData.get('lokr_linear_alpha');
+                command += ' --lokr-factor ' + formData.get('lokr_factor');
+                if (formData.get('lokr_decompose_both') === 'on') command += ' --lokr-decompose-both';
+                if (formData.get('lokr_use_tucker') === 'on') command += ' --lokr-use-tucker';
+                if (formData.get('lokr_use_scalar') === 'on') command += ' --lokr-use-scalar';
+                if (formData.get('lokr_weight_decompose') === 'on') command += ' --lokr-weight-decompose';
 
-                    // LoKR params
-                    if (formData.get('lokr_linear_dim') !== '64') {
-                        command += ' --lokr-linear-dim ' + formData.get('lokr_linear_dim');
-                    }
-                    if (formData.get('lokr_linear_alpha') !== '128') {
-                        command += ' --lokr-linear-alpha ' + formData.get('lokr_linear_alpha');
-                    }
-                    if (formData.get('lokr_factor') !== '-1') {
-                        command += ' --lokr-factor ' + formData.get('lokr_factor');
-                    }
-                    if (formData.get('lokr_decompose_both') === 'on') {
-                        command += ' --lokr-decompose-both';
-                    }
-                    if (formData.get('lokr_use_tucker') === 'on') {
-                        command += ' --lokr-use-tucker';
-                    }
-                    if (formData.get('lokr_use_scalar') === 'on') {
-                        command += ' --lokr-use-scalar';
-                    }
-                    if (formData.get('lokr_weight_decompose') === 'on') {
-                        command += ' --lokr-weight-decompose';
-                    }
-                } else if (adapterType === 'loha') {
-                    command += ' --adapter-type loha';
+            } else if (adapterType === 'loha') {
+                command += ' --adapter loha';
+                command += ' --loha-linear-dim ' + formData.get('loha_linear_dim');
+                command += ' --loha-linear-alpha ' + formData.get('loha_linear_alpha');
+                command += ' --loha-factor ' + formData.get('loha_factor');
+                if (formData.get('loha_use_tucker') === 'on') command += ' --loha-use-tucker';
+                if (formData.get('loha_use_scalar') === 'on') command += ' --loha-use-scalar';
 
-                    // LoHA params
-                    if (formData.get('loha_linear_dim') !== '16') {
-                        command += ' --loha-linear-dim ' + formData.get('loha_linear_dim');
-                    }
-                    if (formData.get('loha_linear_alpha') !== '16') {
-                        command += ' --loha-linear-alpha ' + formData.get('loha_linear_alpha');
-                    }
-                    if (formData.get('loha_factor') !== '-1') {
-                        command += ' --loha-factor ' + formData.get('loha_factor');
-                    }
-                    if (formData.get('loha_use_tucker') === 'on') {
-                        command += ' --loha-use-tucker';
-                    }
-                    if (formData.get('loha_use_scalar') === 'on') {
-                        command += ' --loha-use-scalar';
-                    }
-                } else if (adapterType === 'oft') {
-                    command += ' --adapter-type oft';
+            } else if (adapterType === 'oft') {
+                command += ' --adapter oft';
+                command += ' --oft-block-size ' + formData.get('oft_block_size');
+                if (formData.get('oft_coft') === 'on') command += ' --oft-coft';
+                command += ' --oft-eps ' + formData.get('oft_eps');
 
-                    // OFT params
-                    if (formData.get('oft_block_size') !== '8') {
-                        command += ' --oft-block-size ' + formData.get('oft_block_size');
-                    }
-                    if (formData.get('oft_coft') === 'on') {
-                        command += ' --oft-coft';
-                    }
-                    if (formData.get('oft_eps') !== '1e-3' && formData.get('oft_eps') !== '0.001') {
-                        command += ' --oft-eps ' + formData.get('oft_eps');
-                    }
-                } else {
-                    // LoRA or DoRA params
-                    if (adapterType === 'dora') {
-                        command += ' --adapter-type dora';
-                    }
-                    if (formData.get('rank') !== '64') {
-                        command += ' --rank ' + formData.get('rank');
-                    }
-                    if (formData.get('alpha') !== '128') {
-                        command += ' --alpha ' + formData.get('alpha');
-                    }
-                    if (formData.get('dropout') !== '0.1') {
-                        command += ' --dropout ' + formData.get('dropout');
-                    }
-                    if (formData.get('attention_type') !== 'both') {
-                        command += ' --attention-type ' + formData.get('attention_type');
-                    }
-                    if (formData.get('target_modules') !== 'q_proj k_proj v_proj o_proj') {
-                        command += ' --target-modules ' + formData.get('target_modules');
-                    }
-                    if (formData.get('bias') !== 'none') {
-                        command += ' --bias ' + formData.get('bias');
-                    }
-                    if (formData.get('self_target_modules')) {
-                        command += ' --self-target-modules ' + formData.get('self_target_modules');
-                    }
-                    if (formData.get('cross_target_modules')) {
-                        command += ' --cross-target-modules ' + formData.get('cross_target_modules');
-                    }
-                }
+            } else {
+                // LoRA or DoRA
+                if (adapterType === 'dora') command += ' --adapter dora';
+                command += ' --rank ' + formData.get('rank');
+                command += ' --alpha ' + formData.get('alpha');
+                command += ' --dropout ' + formData.get('dropout');
+                command += ' --attention-type ' + formData.get('attention_type');
+                command += ' --target-modules ' + formData.get('target_modules');
+                command += ' --bias ' + formData.get('bias');
+                if (formData.get('target_mlp') !== 'on') command += ' --no-target-mlp';
+                const selfMods = formData.get('self_target_modules');
+                if (selfMods) command += ' --self-target-modules ' + selfMods;
+                const crossMods = formData.get('cross_target_modules');
+                if (crossMods) command += ' --cross-target-modules ' + crossMods;
+            }
 
-                // Training hyperparameters
-                if (formData.get('learning_rate') !== '0.0001') {
-                    command += ' --lr ' + formData.get('learning_rate');
-                }
-                if (formData.get('batch_size') !== '1') {
-                    command += ' --batch-size ' + formData.get('batch_size');
-                }
-                if (formData.get('gradient_accumulation') !== '4') {
-                    command += ' --gradient-accumulation ' + formData.get('gradient_accumulation');
-                }
-                if (formData.get('epochs') !== '100') {
-                    command += ' --epochs ' + formData.get('epochs');
-                }
-                if (formData.get('warmup_steps') !== '100') {
-                    command += ' --warmup-steps ' + formData.get('warmup_steps');
-                }
-                if (formData.get('seed') !== '42') {
-                    command += ' --seed ' + formData.get('seed');
-                }
-                if (formData.get('weight_decay') !== '0.01') {
-                    command += ' --weight-decay ' + formData.get('weight_decay');
-                }
-                if (formData.get('max_grad_norm') !== '1.0') {
-                    command += ' --max-grad-norm ' + formData.get('max_grad_norm');
-                }
+            // Training hyperparameters — all always emitted
+            command += ' --lr ' + formData.get('learning_rate');
+            command += ' --batch-size ' + formData.get('batch_size');
+            command += ' --gradient-accumulation ' + formData.get('gradient_accumulation');
+            command += ' --epochs ' + formData.get('epochs');
+            command += ' --warmup-steps ' + formData.get('warmup_steps');
+            command += ' --seed ' + formData.get('seed');
+            command += ' --weight-decay ' + formData.get('weight_decay');
+            command += ' --max-grad-norm ' + formData.get('max_grad_norm');
+            command += ' --optimizer-type ' + formData.get('optimizer_type');
+            command += ' --scheduler-type ' + formData.get('scheduler_type');
 
-                const chunkDuration = formData.get('chunk_duration');
-                if (chunkDuration && chunkDuration !== '0') {
-                    command += ' --chunk-duration ' + chunkDuration;
-                }
+            const schedulerFormula = formData.get('scheduler_formula');
+            if (schedulerFormula) command += ' --scheduler-formula "' + schedulerFormula + '"';
 
-                const shift = formData.get('shift');
-                if (shift && shift !== '3.0') {
-                    command += ' --shift ' + shift;
-                }
+            const maxSteps = formData.get('max_steps');
+            if (maxSteps && maxSteps !== '0') command += ' --max-steps ' + maxSteps;
 
-                const numSteps = formData.get('num_inference_steps');
-                if (numSteps && numSteps !== '8') {
-                    command += ' --num-inference-steps ' + numSteps;
-                }
+            // Chunking
+            const chunkDuration = formData.get('chunk_duration');
+            if (chunkDuration && chunkDuration !== '0') command += ' --chunk-duration ' + chunkDuration;
+            command += ' --chunk-decay-every ' + (formData.get('chunk_decay_every') || '10');
 
-                // CFG & Loss
-                if (formData.get('cfg_ratio') !== '0.15') {
-                    command += ' --cfg-ratio ' + formData.get('cfg_ratio');
-                }
-                if (formData.get('loss_weighting') !== 'none') {
-                    command += ' --loss-weighting ' + formData.get('loss_weighting');
-                }
-                if (formData.get('snr_gamma') !== '5.0') {
-                    command += ' --snr-gamma ' + formData.get('snr_gamma');
-                }
+            // Shift / inference steps
+            command += ' --shift ' + formData.get('shift');
+            command += ' --num-inference-steps ' + formData.get('num_inference_steps');
 
-                // Optimizer
-                // Optimizer (Beta 1 default is adamw8bit)
-                if (formData.get('optimizer_type') !== 'adamw8bit') {
-                    command += ' --optimizer-type ' + formData.get('optimizer_type');
-                }
-                if (formData.get('scheduler_type') !== 'cosine') {
-                    command += ' --scheduler-type ' + formData.get('scheduler_type');
-                }
+            // CFG & Loss — all always emitted
+            command += ' --cfg-ratio ' + formData.get('cfg_ratio');
+            command += ' --loss-weighting ' + formData.get('loss_weighting');
+            command += ' --snr-gamma ' + formData.get('snr_gamma');
 
-                // Memory optimization
-                if (formData.get('gradient_checkpointing') !== 'on') {
-                    command += ' --no-gradient-checkpointing';
-                }
-                if (formData.get('offload_encoder') === 'on') {
-                    command += ' --offload-encoder';
-                }
+            // Memory optimization — always emit state explicitly
+            if (formData.get('gradient_checkpointing') !== 'on') {
+                command += ' --no-gradient-checkpointing';
+            } else {
+                command += ' --gradient-checkpointing';
+                command += ' --gradient-checkpointing-ratio ' + formData.get('gradient_checkpointing_ratio');
+            }
+            if (formData.get('offload_encoder') === 'on') {
+                command += ' --offload-encoder';
+            } else {
+                command += ' --no-offload-encoder';
+            }
+            if (formData.get('weight_quantize') === 'on') {
+                command += ' --weight-quantize';
+                command += ' --weight-qtype ' + (formData.get('weight_qtype') || 'qfloat8');
+            }
 
-                // Data loading
-                if (formData.get('num_workers') !== '4') {
-                    command += ' --num-workers ' + formData.get('num_workers');
-                }
-                if (formData.get('prefetch_factor') !== '2') {
-                    command += ' --prefetch-factor ' + formData.get('prefetch_factor');
-                }
-                if (formData.get('pin_memory') !== 'on') {
-                    command += ' --no-pin-memory';
-                }
-                if (formData.get('persistent_workers') !== 'on') {
-                    command += ' --no-persistent-workers';
-                }
+            // Data loading — always emit
+            command += ' --num-workers ' + formData.get('num_workers');
+            command += ' --prefetch-factor ' + formData.get('prefetch_factor');
+            if (formData.get('pin_memory') === 'on') {
+                command += ' --pin-memory';
+            } else {
+                command += ' --no-pin-memory';
+            }
+            if (formData.get('persistent_workers') === 'on') {
+                command += ' --persistent-workers';
+            } else {
+                command += ' --no-persistent-workers';
+            }
 
-                // Checkpointing
-                if (formData.get('save_every') !== '10') {
-                    command += ' --save-every ' + formData.get('save_every');
-                }
-                if (formData.get('log_every') !== '10') {
-                    command += ' --log-every ' + formData.get('log_every');
-                }
-                if (formData.get('log_heavy_every') !== '50') {
-                    command += ' --log-heavy-every ' + formData.get('log_heavy_every');
-                }
-                if (formData.get('log_dir')) {
-                    command += ' --log-dir "' + formData.get('log_dir') + '"';
-                }
-                if (formData.get('resume_from')) {
-                    command += ' --resume-from "' + formData.get('resume_from') + '"';
-                }
+            // Checkpointing — always emit
+            command += ' --save-every ' + formData.get('save_every');
+            command += ' --log-every ' + formData.get('log_every');
+            command += ' --log-heavy-every ' + formData.get('log_heavy_every');
+            command += ' --save-best-after ' + formData.get('save_best_after');
+            command += ' --early-stop-patience ' + formData.get('early_stop_patience');
+
+            const logDir = formData.get('log_dir');
+            if (logDir) command += ' --log-dir "' + logDir + '"';
+            const resumeFrom = formData.get('resume_from');
+            if (resumeFrom) command += ' --resume-from "' + resumeFrom + '"';
+
+            // EMA — always emit decay; start step only if EMA is active
+            command += ' --ema-decay ' + (formData.get('ema_decay') || '0');
+            const emaDecay = parseFloat(formData.get('ema_decay') || '0');
+            if (emaDecay > 0) {
+                command += ' --ema-start-step ' + (formData.get('ema_start_step') || '2000');
+            }
+
+            // Validation & early stopping — always emit
+            command += ' --val-split ' + (formData.get('val_split') || '0');
+
+            // Per-layer LR scaling — always emit
+            command += ' --lr-scale-self-attn ' + (formData.get('lr_scale_self_attn') || '1.0');
+            command += ' --lr-scale-cross-attn ' + (formData.get('lr_scale_cross_attn') || '1.0');
+            command += ' --lr-scale-mlp ' + (formData.get('lr_scale_mlp') || '1.0');
+
+            // Target loss cruise control — always emit
+            command += ' --target-loss ' + (formData.get('target_loss') || '0');
+            command += ' --target-loss-floor ' + (formData.get('target_loss_floor') || '0.01');
+            command += ' --target-loss-warmup ' + (formData.get('target_loss_warmup') || '50');
+            command += ' --target-loss-smoothing ' + (formData.get('target_loss_smoothing') || '0.98');
+
+            // Advanced Options — only emit if non-default
+            const lossFn = formData.get('loss_fn');
+            if (lossFn && lossFn !== 'mse') command += ' --loss-fn ' + lossFn;
+
+            const huberDelta = formData.get('huber_delta');
+            if (huberDelta && huberDelta !== '1.0' && huberDelta !== '1') command += ' --huber-delta ' + huberDelta;
+
+            const timestepMode = formData.get('timestep_mode');
+            if (timestepMode && timestepMode !== 'continuous') command += ' --timestep-mode ' + timestepMode;
+
+            const datasetRepeats = formData.get('dataset_repeats');
+            if (datasetRepeats && datasetRepeats !== '1') command += ' --dataset-repeats ' + datasetRepeats;
+
+            const saveBestNSteps = formData.get('save_best_every_n_steps');
+            if (saveBestNSteps && saveBestNSteps !== '0') command += ' --save-best-every-n-steps ' + saveBestNSteps;
+
+            const strictResume = formData.get('strict_resume');
+            if (strictResume === 'false') command += ' --no-strict-resume';
+
+            const warmupFactor = formData.get('warmup_start_factor');
+            if (warmupFactor && warmupFactor !== '0.1') command += ' --warmup-start-factor ' + warmupFactor;
+
+            const cosineMin = formData.get('cosine_eta_min_ratio');
+            if (cosineMin && cosineMin !== '0.01') command += ' --cosine-eta-min-ratio ' + cosineMin;
+
+            const cosineRestarts = formData.get('cosine_restarts_count');
+            if (cosineRestarts && cosineRestarts !== '4') command += ' --cosine-restarts-count ' + cosineRestarts;
 
             return command;
         }
