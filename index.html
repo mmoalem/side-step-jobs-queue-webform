@@ -2430,14 +2430,14 @@ uv pip install optimum-quanto</pre>
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>TensorBoard Directory</label>
+                            <label>TensorBoard Log Directory</label>
                             <input type="text" name="log_dir" placeholder="Default: {output-dir}/runs">
-                            <span class="help-text">Custom path for TensorBoard logs</span>
+                            <span class="help-text">Leave blank to use default ({output-dir}/runs). For Modal: set to <code>/output/my-lora/runs</code> so logs go to the persistent volume.</span>
                         </div>
                         <div class="form-group">
                             <label>Resume from Checkpoint (optional)</label>
-                            <input type="text" name="resume_from" placeholder="./output/my_lora/checkpoint-epoch-50">
-                            <span class="help-text">Path to checkpoint-epoch-N directory</span>
+                            <input type="number" name="resume_from_epoch" placeholder="e.g. 500" min="1" style="width:120px; display:inline-block;">
+                            <span class="help-text">Enter epoch number — full path is built automatically from Output Directory. e.g. epoch 500 → <code>{output-dir}/checkpoints/epoch_500</code></span>
                         </div>
                     </div>
 
@@ -3440,7 +3440,14 @@ uv pip install optimum-quanto</pre>
             apply('log_every',          cfg.log_every_n_steps   || cfg.log_every);
             apply('log_heavy_every',    cfg.log_heavy_every);
             if (cfg.log_dir && cfg.log_dir !== 'runs') apply('log_dir', cfg.log_dir);
-            if (cfg.resume_from)        apply('resume_from',     cfg.resume_from);
+            if (cfg.resume_from) {
+                // Extract epoch number from path like .../checkpoints/epoch_500
+                const epochMatch = cfg.resume_from.match(/epoch[_\-](\d+)/i);
+                if (epochMatch) {
+                    const el = document.querySelector('input[name="resume_from_epoch"]');
+                    if (el) el.value = epochMatch[1];
+                }
+            }
             apply('save_best_after',    cfg.save_best_after);
             apply('early_stop_patience',cfg.early_stop_patience);
             apply('target_loss',        cfg.target_loss);
@@ -3720,10 +3727,30 @@ uv pip install optimum-quanto</pre>
             command += ' --save-best-after ' + formData.get('save_best_after');
             command += ' --early-stop-patience ' + formData.get('early_stop_patience');
 
+            // Log dir — always emit so it goes to a predictable location
             const logDir = formData.get('log_dir');
-            if (logDir) command += ' --log-dir "' + logDir + '"';
-            const resumeFrom = formData.get('resume_from');
-            if (resumeFrom) command += ' --resume-from "' + resumeFrom + '"';
+            if (logDir) {
+                command += ' --log-dir "' + logDir + '"';
+            } else {
+                // Default to {output-dir}/runs so it's explicit and predictable
+                const outputDir = formData.get('output_dir');
+                if (outputDir) {
+                    const sep = outputDir.includes('\\') ? '\\' : '/';
+                    command += ' --log-dir "' + outputDir + sep + 'runs"';
+                }
+            }
+
+            // Resume from — build full path from epoch number + output dir
+            const resumeEpoch = formData.get('resume_from_epoch');
+            if (resumeEpoch && parseInt(resumeEpoch) > 0) {
+                const outputDir = formData.get('output_dir');
+                if (outputDir) {
+                    const sep = outputDir.includes('\\') ? '\\' : '/';
+                    command += ' --resume-from "' + outputDir + sep + 'checkpoints' + sep + 'epoch_' + resumeEpoch + '"';
+                } else {
+                    command += ' --resume-from "checkpoints/epoch_' + resumeEpoch + '"';
+                }
+            }
 
             // EMA — always emit decay; start step only if EMA is active
             command += ' --ema-decay ' + (formData.get('ema_decay') || '0');
